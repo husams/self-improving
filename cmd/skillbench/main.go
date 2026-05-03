@@ -58,7 +58,8 @@ Commands:
   suite --agent <agent> --skill <path> --cases <cases.yaml>
   extract --agent <agent> --latest | --session <path-or-id>
   analyze --run .skillbench/runs/<run-id>
-  research --agent <agent> --skill <path> --cases <cases.yaml> --max-trials 20 --min-improvement 5`)
+  research --agent <agent> --skill <path> --cases <cases.yaml> --max-trials 20 --min-improvement 5
+          [--proposer deterministic|llm] [--proposer-agent <agent>] [--proposer-system <path>] [--history-window 10]`)
 }
 
 func runTest(args []string) error {
@@ -183,10 +184,18 @@ func runResearch(args []string) error {
 	casesPath := fs.String("cases", "", "cases yaml")
 	maxTrials := fs.Int("max-trials", 20, "max trials")
 	minImprovement := fs.Float64("min-improvement", 5, "minimum score improvement required for a proposal")
+	proposerKind := fs.String("proposer", "deterministic", "proposer kind: deterministic|llm")
+	proposerAgent := fs.String("proposer-agent", "", "agent used by the LLM proposer (defaults to --agent)")
+	proposerSystem := fs.String("proposer-system", "", "path to proposer system prompt (overrides embedded default)")
+	historyWindow := fs.Int("history-window", 10, "max prior trials passed to the proposer (0 = all)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	cases, err := loadCases(*casesPath)
+	if err != nil {
+		return err
+	}
+	prop, err := buildProposer(*proposerKind, model.Agent(*proposerAgent), model.Agent(*agent), *proposerSystem)
 	if err != nil {
 		return err
 	}
@@ -197,6 +206,8 @@ func runResearch(args []string) error {
 		MaxTrials:      *maxTrials,
 		MinImprovement: *minImprovement,
 		Executor:       executeCase,
+		Proposer:       prop,
+		HistoryWindow:  *historyWindow,
 	}
 	result, err := research.Run(context.Background(), cfg)
 	if err != nil {
@@ -209,6 +220,54 @@ func runResearch(args []string) error {
 		fmt.Println(p.Path)
 	}
 	return nil
+}
+
+func buildProposer(kind string, proposerAgent, runnerAgent model.Agent, systemFile string) (research.Proposer, error) {
+	switch kind {
+	case "", "deterministic":
+		return research.DeterministicProposer{}, nil
+	case "llm":
+		pa := proposerAgent
+		if pa == "" {
+			pa = runnerAgent
+		}
+		if pa == "" {
+			return nil, fmt.Errorf("--proposer=llm requires --proposer-agent or --agent")
+		}
+		return research.LLMProposer{
+			Agent:      pa,
+			Run:        runProposer,
+			SystemFile: systemFile,
+			Fallback:   research.DeterministicProposer{},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown --proposer %q", kind)
+	}
+}
+
+func runProposer(ctx context.Context, agent model.Agent, prompt string) (string, error) {
+	rr, err := runner.NewCLI().Run(ctx, runner.Spec{
+		Agent:   agent,
+		Prompt:  prompt,
+		WorkDir: ".",
+		Timeout: 2 * time.Minute,
+	})
+	if err != nil {
+		return "", err
+	}
+	if rr.ExitCode != 0 {
+		return "", fmt.Errorf("proposer agent %s exited %d: %s", agent, rr.ExitCode, strings.TrimSpace(string(rr.Stderr)))
+	}
+	events, err := adapters.Parse(agent, rr.Stdout)
+	if err != nil {
+		return "", err
+	}
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Type == model.EventAssistant && strings.TrimSpace(events[i].Text) != "" {
+			return events[i].Text, nil
+		}
+	}
+	return "", fmt.Errorf("no assistant message in proposer output")
 }
 
 func executeCase(ctx context.Context, agent model.Agent, skillPath string, tc model.TestCase) (model.NormalizedRun, error) {

@@ -25,6 +25,8 @@ type Config struct {
 	MaxTrials      int
 	MinImprovement float64
 	Executor       Executor
+	Proposer       Proposer
+	HistoryWindow  int
 }
 
 type Proposal struct {
@@ -74,6 +76,9 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 	if cfg.MinImprovement <= 0 {
 		cfg.MinImprovement = 5
 	}
+	if cfg.Proposer == nil {
+		cfg.Proposer = DeterministicProposer{}
+	}
 	info, err := skills.Load(cfg.SkillPath)
 	if err != nil {
 		return Result{}, err
@@ -97,8 +102,20 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 		if err != nil {
 			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
 		}
-		strat := chooseStrategy(i, tc, baseline)
-		candidateContent := strat.Apply(info.Content, tc, baseline)
+		hist := trials
+		if cfg.HistoryWindow > 0 && len(trials) > cfg.HistoryWindow {
+			hist = trials[len(trials)-cfg.HistoryWindow:]
+		}
+		cand, err := cfg.Proposer.Propose(ctx, ProposerInput{
+			SkillContent: info.Content,
+			Case:         tc,
+			Baseline:     baseline,
+			History:      hist,
+		})
+		if err != nil {
+			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+		}
+		candidateContent := cand.Content
 		candidatePath, cleanupCandidate, err := stageSkillCopy(cfg.SkillPath, candidateContent)
 		if err != nil {
 			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
@@ -113,15 +130,15 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 		trial := Trial{
 			TrialID:        trialID,
 			CaseID:         tc.ID,
-			Strategy:       strat.Name,
-			Hypothesis:     strat.Hypothesis,
+			Strategy:       cand.Strategy,
+			Hypothesis:     cand.Hypothesis,
 			BaselineRunID:  baseline.RunID,
 			CandidateRunID: candidate.RunID,
 			BaselineScore:  baseline.Metrics.Overall,
 			CandidateScore: candidate.Metrics.Overall,
 			Improvement:    improvement,
 			Decision:       decision,
-			Notes:          notes,
+			Notes:          append(notes, cand.Notes...),
 			CreatedAt:      time.Now(),
 		}
 		if decision == "propose" {
