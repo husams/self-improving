@@ -1,0 +1,3 @@
+{"timestamp":"2026-05-03T10:00:00Z","type":"response_item","payload":{"item":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"I used cognee-memory and completed the ingest."}]}}}
+{"timestamp":"2026-05-03T10:00:01Z","type":"response_item","payload":{"item":{"type":"function_call","name":"cognee","call_id":"call_1"}}}
+{"timestamp":"2026-05-03T10:00:02Z","type":"response_item","payload":{"item":{"type":"function_call_output","call_id":"call_1","output":"ok"}}}

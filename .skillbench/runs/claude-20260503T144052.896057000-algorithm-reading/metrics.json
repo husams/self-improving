@@ -1,0 +1,40 @@
+{
+  "overall": 60,
+  "task_success": 83.33333333333334,
+  "skill_use": 100,
+  "skill_adherence": 100,
+  "output_quality": 80,
+  "tool_health": 100,
+  "efficiency": 60,
+  "safety_failure": false,
+  "deterministic_fail": true,
+  "assertions": [
+    {
+      "name": "final_contains:Algorithm",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Failure Modes",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Evaluation Ideas",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Improvement Hypothesis",
+      "passed": true
+    },
+    {
+      "name": "final_contains:chunk",
+      "passed": false
+    },
+    {
+      "name": "final_contains:citation",
+      "passed": true
+    }
+  ],
+  "notes": [
+    "deterministic assertion cap applied"
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "run_id": "claude-20260503T143857.130719000-incident-review",
+  "agent": "claude",
+  "case": {
+    "id": "incident-review",
+    "prompt": "Use the doc-reading-reviewer skill to review the incident report.\nReturn sections named Timeline, Root Cause, Customer Impact, and Follow-up Checks.\nDo not invent facts that are not in the fixture.\n",
+    "expected_skill": "doc-reading-reviewer",
+    "workspace_fixture": "",
+    "timeout_seconds": 600,
+    "assertions": {
+      "final_contains": [
+        "Timeline",
+        "Root Cause",
+        "Customer Impact",
+        "Follow-up Checks",
+        "09:42",
+        "idempotency"
+      ],
+      "tool_called": [],
+      "tool_not_called": [],
+      "files_created": []
+    },
+    "rubric": {
+      "output_quality": "Does the answer stay grounded in the incident text?",
+      "skill_adherence": "Does the answer separate evidence from recommendations?",
+      "task_success": "Does the answer identify the timeline, root cause, impact, and follow-up checks?"
+    }
+  },
+  "skill": {
+    "name": "doc-reading-reviewer",
+    "path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-522894640",
+    "skill_path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-522894640/SKILL.md",
+    "fingerprint": "eb7e839a7bdc2df7"
+  },
+  "exposure": "rendered_fallback",
+  "events": [
+    {
+      "type": "error",
+      "timestamp": "2026-05-03T15:38:59.329634+01:00",
+      "text": "Error: When using --print, --output-format=stream-json requires --verbose"
+    }
+  ],
+  "metrics": {
+    "overall": 11.8,
+    "task_success": 0,
+    "skill_use": 0,
+    "skill_adherence": 0,
+    "output_quality": 0,
+    "tool_health": 75,
+    "efficiency": 85,
+    "safety_failure": false,
+    "deterministic_fail": true,
+    "assertions": [
+      {
+        "name": "final_contains:Timeline",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Root Cause",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Customer Impact",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Follow-up Checks",
+        "passed": false
+      },
+      {
+        "name": "final_contains:09:42",
+        "passed": false
+      },
+      {
+        "name": "final_contains:idempotency",
+        "passed": false
+      }
+    ]
+  },
+  "raw_log_paths": [
+    ".skillbench/runs/claude-20260503T143857.130719000-incident-review/raw/stdout.jsonl",
+    ".skillbench/runs/claude-20260503T143857.130719000-incident-review/raw/stderr.log"
+  ],
+  "started_at": "2026-05-03T15:38:57.130771+01:00",
+  "finished_at": "2026-05-03T15:38:59.329616+01:00",
+  "exit_code": 1
+}

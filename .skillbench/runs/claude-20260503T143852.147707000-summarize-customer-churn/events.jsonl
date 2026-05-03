@@ -1,0 +1,1 @@
+{"type":"error","timestamp":"2026-05-03T15:38:54.950337+01:00","text":"Error: When using --print, --output-format=stream-json requires --verbose"}

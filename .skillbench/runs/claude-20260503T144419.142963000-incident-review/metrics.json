@@ -1,0 +1,37 @@
+{
+  "overall": 96.3,
+  "task_success": 100,
+  "skill_use": 100,
+  "skill_adherence": 100,
+  "output_quality": 80,
+  "tool_health": 100,
+  "efficiency": 85,
+  "safety_failure": false,
+  "deterministic_fail": false,
+  "assertions": [
+    {
+      "name": "final_contains:Timeline",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Root Cause",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Customer Impact",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Follow-up Checks",
+      "passed": true
+    },
+    {
+      "name": "final_contains:09:42",
+      "passed": true
+    },
+    {
+      "name": "final_contains:idempotency",
+      "passed": true
+    }
+  ]
+}

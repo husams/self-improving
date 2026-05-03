@@ -1,0 +1,123 @@
+{
+  "run_id": "claude-20260503T143955.176712000-summarize-customer-churn",
+  "agent": "claude",
+  "case": {
+    "id": "summarize-customer-churn",
+    "prompt": "Use the doc-reading-reviewer skill to summarize the customer churn note.\nReturn sections named Summary, Key Facts, Risks, and Next Actions.\nCite the concrete facts you used from the document.\n",
+    "expected_skill": "doc-reading-reviewer",
+    "workspace_fixture": "",
+    "timeout_seconds": 600,
+    "assertions": {
+      "final_contains": [
+        "Summary",
+        "Key Facts",
+        "Risks",
+        "Next Actions",
+        "18%",
+        "12 accounts"
+      ],
+      "tool_called": [],
+      "tool_not_called": [],
+      "files_created": []
+    },
+    "rubric": {
+      "output_quality": "Does the answer cite concrete facts and avoid unsupported claims?",
+      "skill_adherence": "Does the answer show a deliberate read, extract, verify, and respond workflow?",
+      "task_success": "Does the answer summarize the churn note and include the requested sections?"
+    }
+  },
+  "skill": {
+    "name": "doc-reading-reviewer",
+    "path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-548774035",
+    "skill_path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-548774035/SKILL.md",
+    "fingerprint": "eb7e839a7bdc2df7"
+  },
+  "exposure": "rendered_fallback",
+  "events": [
+    {
+      "type": "assistant_message",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "role": "assistant",
+      "text": "I don't see a document attached or a file path provided. Could you share the customer churn note — either paste the text directly, or give me the file path?",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01CX8RAoxGW4qd4G96VqWBAU",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I don't see a document attached or a file path provided. Could you share the customer churn note — either paste the text directly, or give me the file path?"
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 23398,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 23398,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "4d14eabb-a6f8-43e8-9bc9-36d9b01b3224",
+        "uuid": "cffc426e-a8c1-4147-b2be-c5e2a7ae8fd0"
+      }
+    }
+  ],
+  "metrics": {
+    "overall": 26.3,
+    "task_success": 0,
+    "skill_use": 0,
+    "skill_adherence": 0,
+    "output_quality": 80,
+    "tool_health": 100,
+    "efficiency": 85,
+    "safety_failure": false,
+    "deterministic_fail": true,
+    "assertions": [
+      {
+        "name": "final_contains:Summary",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Key Facts",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Risks",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Next Actions",
+        "passed": false
+      },
+      {
+        "name": "final_contains:18%",
+        "passed": false
+      },
+      {
+        "name": "final_contains:12 accounts",
+        "passed": false
+      }
+    ]
+  },
+  "raw_log_paths": [
+    ".skillbench/runs/claude-20260503T143955.176712000-summarize-customer-churn/raw/stdout.jsonl",
+    ".skillbench/runs/claude-20260503T143955.176712000-summarize-customer-churn/raw/stderr.log"
+  ],
+  "started_at": "2026-05-03T15:39:55.176912+01:00",
+  "finished_at": "2026-05-03T15:40:01.767952+01:00",
+  "exit_code": 0
+}

@@ -1,0 +1,200 @@
+{
+  "run_id": "claude-20260503T144045.377534000-incident-review",
+  "agent": "claude",
+  "case": {
+    "id": "incident-review",
+    "prompt": "Use the doc-reading-reviewer skill to review the incident report.\nReturn sections named Timeline, Root Cause, Customer Impact, and Follow-up Checks.\nDo not invent facts that are not in the fixture.\n",
+    "expected_skill": "doc-reading-reviewer",
+    "workspace_fixture": "",
+    "timeout_seconds": 600,
+    "assertions": {
+      "final_contains": [
+        "Timeline",
+        "Root Cause",
+        "Customer Impact",
+        "Follow-up Checks",
+        "09:42",
+        "idempotency"
+      ],
+      "tool_called": [],
+      "tool_not_called": [],
+      "files_created": []
+    },
+    "rubric": {
+      "output_quality": "Does the answer stay grounded in the incident text?",
+      "skill_adherence": "Does the answer separate evidence from recommendations?",
+      "task_success": "Does the answer identify the timeline, root cause, impact, and follow-up checks?"
+    }
+  },
+  "skill": {
+    "name": "doc-reading-reviewer",
+    "path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-3355620688",
+    "skill_path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-3355620688/SKILL.md",
+    "fingerprint": "c2fb46cf4a6f44f3"
+  },
+  "exposure": "rendered_fallback",
+  "events": [
+    {
+      "type": "skill_invocation",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "name": "Skill",
+      "call_id": "toolu_01EnneAWwCcpJuNZrF5Nydf3",
+      "text": "{\"skill\":\"doc-reading-reviewer\"}",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01JQwnqsd2PBCTjNWonYG8T6",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01EnneAWwCcpJuNZrF5Nydf3",
+              "name": "Skill",
+              "input": {
+                "skill": "doc-reading-reviewer"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 9879,
+            "cache_read_input_tokens": 13703,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 9879,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "2395ca2f-40ab-467e-8118-cde255188565",
+        "uuid": "1bdb52f7-03ec-44d2-8c3c-b1f2e88cd6b3"
+      }
+    },
+    {
+      "type": "user_message",
+      "timestamp": "2026-05-03T14:40:49.234Z",
+      "role": "user",
+      "text": "<tool_use_error>Unknown skill: doc-reading-reviewer</tool_use_error>",
+      "raw": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "<tool_use_error>Unknown skill: doc-reading-reviewer</tool_use_error>",
+              "is_error": true,
+              "tool_use_id": "toolu_01EnneAWwCcpJuNZrF5Nydf3"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "2395ca2f-40ab-467e-8118-cde255188565",
+        "uuid": "67387392-080c-4a0b-8dac-0e008bc108f1",
+        "timestamp": "2026-05-03T14:40:49.234Z",
+        "tool_use_result": "Error: Unknown skill: doc-reading-reviewer"
+      }
+    },
+    {
+      "type": "assistant_message",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "role": "assistant",
+      "text": "The skill isn't registered in the available skills list — it was provided inline in the prompt rather than as an installed skill. I'll follow its instructions directly and look for the incident report to review.\n\nNo incident report file was provided or attached. Could you share the incident report? You can paste it directly into the chat or provide a file path.",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01Qhui9zy2EJfVDMEaUhrsNC",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The skill isn't registered in the available skills list — it was provided inline in the prompt rather than as an installed skill. I'll follow its instructions directly and look for the incident report to review.\n\nNo incident report file was provided or attached. Could you share the incident report? You can paste it directly into the chat or provide a file path."
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 142,
+            "cache_read_input_tokens": 23582,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 142,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 1,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "2395ca2f-40ab-467e-8118-cde255188565",
+        "uuid": "eea0e72e-37f9-4da7-9123-ac0587fda89e"
+      }
+    }
+  ],
+  "metrics": {
+    "overall": 60,
+    "task_success": 0,
+    "skill_use": 100,
+    "skill_adherence": 100,
+    "output_quality": 80,
+    "tool_health": 100,
+    "efficiency": 85,
+    "safety_failure": false,
+    "deterministic_fail": true,
+    "assertions": [
+      {
+        "name": "final_contains:Timeline",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Root Cause",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Customer Impact",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Follow-up Checks",
+        "passed": false
+      },
+      {
+        "name": "final_contains:09:42",
+        "passed": false
+      },
+      {
+        "name": "final_contains:idempotency",
+        "passed": false
+      }
+    ],
+    "notes": [
+      "deterministic assertion cap applied"
+    ]
+  },
+  "raw_log_paths": [
+    ".skillbench/runs/claude-20260503T144045.377534000-incident-review/raw/stdout.jsonl",
+    ".skillbench/runs/claude-20260503T144045.377534000-incident-review/raw/stderr.log"
+  ],
+  "started_at": "2026-05-03T15:40:45.377586+01:00",
+  "finished_at": "2026-05-03T15:40:52.892406+01:00",
+  "exit_code": 0
+}

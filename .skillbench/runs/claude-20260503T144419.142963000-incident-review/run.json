@@ -1,0 +1,199 @@
+{
+  "run_id": "claude-20260503T144419.142963000-incident-review",
+  "agent": "claude",
+  "case": {
+    "id": "incident-review",
+    "prompt": "Use the doc-reading-reviewer skill to review the incident report.\nReturn sections named Timeline, Root Cause, Customer Impact, and Follow-up Checks.\nDo not invent facts that are not in the fixture.\n",
+    "expected_skill": "doc-reading-reviewer",
+    "fixture_path": "experiments/basic-doc-reading/fixtures/payment-incident.md",
+    "workspace_fixture": "",
+    "timeout_seconds": 600,
+    "assertions": {
+      "final_contains": [
+        "Timeline",
+        "Root Cause",
+        "Customer Impact",
+        "Follow-up Checks",
+        "09:42",
+        "idempotency"
+      ],
+      "tool_called": [],
+      "tool_not_called": [],
+      "files_created": []
+    },
+    "rubric": {
+      "output_quality": "Does the answer stay grounded in the incident text?",
+      "skill_adherence": "Does the answer separate evidence from recommendations?",
+      "task_success": "Does the answer identify the timeline, root cause, impact, and follow-up checks?"
+    }
+  },
+  "skill": {
+    "name": "doc-reading-reviewer",
+    "path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-2095358367",
+    "skill_path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-2095358367/SKILL.md",
+    "fingerprint": "eb7e839a7bdc2df7"
+  },
+  "exposure": "rendered_fallback",
+  "events": [
+    {
+      "type": "skill_invocation",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "name": "Skill",
+      "call_id": "toolu_01TgYpZRgfnFM69J6rPgG5m3",
+      "text": "{\"args\":\"Review the payment incident report and return the sections: Timeline, Root Cause, Customer Impact, and Follow-up Checks. Do not invent facts not in the document.\",\"skill\":\"doc-reading-reviewer\"}",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01UEuZxcyRhV8tAP6RFghbV7",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01TgYpZRgfnFM69J6rPgG5m3",
+              "name": "Skill",
+              "input": {
+                "skill": "doc-reading-reviewer",
+                "args": "Review the payment incident report and return the sections: Timeline, Root Cause, Customer Impact, and Follow-up Checks. Do not invent facts not in the document."
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 3,
+            "cache_creation_input_tokens": 9970,
+            "cache_read_input_tokens": 13703,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 9970,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "eff88a37-9eee-49cb-b858-f7708597212b",
+        "uuid": "ae6fc1ff-2c7a-4851-974d-85e546a6306b"
+      }
+    },
+    {
+      "type": "user_message",
+      "timestamp": "2026-05-03T14:44:27.693Z",
+      "role": "user",
+      "text": "<tool_use_error>Unknown skill: doc-reading-reviewer</tool_use_error>",
+      "raw": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "<tool_use_error>Unknown skill: doc-reading-reviewer</tool_use_error>",
+              "is_error": true,
+              "tool_use_id": "toolu_01TgYpZRgfnFM69J6rPgG5m3"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "eff88a37-9eee-49cb-b858-f7708597212b",
+        "uuid": "293f85fe-7288-43c0-951f-acd357cc0b3e",
+        "timestamp": "2026-05-03T14:44:27.693Z",
+        "tool_use_result": "Error: Unknown skill: doc-reading-reviewer"
+      }
+    },
+    {
+      "type": "assistant_message",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "role": "assistant",
+      "text": "The skill isn't registered in the system, but the instructions are provided inline. I'll follow the skill's directive — read the document and answer the request.\n\n---\n\n**Timeline**\n\n- 09:42 UTC: Checkout latency increased after a payment worker deploy.\n- 09:50 UTC: Duplicate retry requests started appearing in the payment queue.\n- 10:03 UTC: On-call paused the worker rollout.\n- 10:17 UTC: Queue depth returned to normal.\n- 10:31 UTC: Support confirmed that affected users could retry checkout.\n\n---\n\n**Root Cause**\n\nThe new payment worker reused the same idempotency key across unrelated retry batches. This caused the gateway to reject some valid retries and delayed checkout completion.\n\n---\n\n**Customer Impact**\n\n- 3.8% of checkout attempts between 09:42 and 10:17 UTC were delayed.\n- No duplicate charges were found in the reconciliation job.\n- 64 support tickets referenced checkout spinning or retry errors.\n\n---\n\n**Follow-up Checks**\n\n- Add a regression test for idempotency key generation.\n- Add an alert when retry queue age exceeds five minutes.\n- Review rollout checks for payment worker deploys.",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_013pJg5BZEo8ka9QwSGnczND",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The skill isn't registered in the system, but the instructions are provided inline. I'll follow the skill's directive — read the document and answer the request.\n\n---\n\n**Timeline**\n\n- 09:42 UTC: Checkout latency increased after a payment worker deploy.\n- 09:50 UTC: Duplicate retry requests started appearing in the payment queue.\n- 10:03 UTC: On-call paused the worker rollout.\n- 10:17 UTC: Queue depth returned to normal.\n- 10:31 UTC: Support confirmed that affected users could retry checkout.\n\n---\n\n**Root Cause**\n\nThe new payment worker reused the same idempotency key across unrelated retry batches. This caused the gateway to reject some valid retries and delayed checkout completion.\n\n---\n\n**Customer Impact**\n\n- 3.8% of checkout attempts between 09:42 and 10:17 UTC were delayed.\n- No duplicate charges were found in the reconciliation job.\n- 64 support tickets referenced checkout spinning or retry errors.\n\n---\n\n**Follow-up Checks**\n\n- Add a regression test for idempotency key generation.\n- Add an alert when retry queue age exceeds five minutes.\n- Review rollout checks for payment worker deploys."
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 193,
+            "cache_read_input_tokens": 23673,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 193,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 5,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "eff88a37-9eee-49cb-b858-f7708597212b",
+        "uuid": "4dcb0152-db1b-420e-bc5f-25d0ba25a094"
+      }
+    }
+  ],
+  "metrics": {
+    "overall": 96.3,
+    "task_success": 100,
+    "skill_use": 100,
+    "skill_adherence": 100,
+    "output_quality": 80,
+    "tool_health": 100,
+    "efficiency": 85,
+    "safety_failure": false,
+    "deterministic_fail": false,
+    "assertions": [
+      {
+        "name": "final_contains:Timeline",
+        "passed": true
+      },
+      {
+        "name": "final_contains:Root Cause",
+        "passed": true
+      },
+      {
+        "name": "final_contains:Customer Impact",
+        "passed": true
+      },
+      {
+        "name": "final_contains:Follow-up Checks",
+        "passed": true
+      },
+      {
+        "name": "final_contains:09:42",
+        "passed": true
+      },
+      {
+        "name": "final_contains:idempotency",
+        "passed": true
+      }
+    ]
+  },
+  "raw_log_paths": [
+    ".skillbench/runs/claude-20260503T144419.142963000-incident-review/raw/stdout.jsonl",
+    ".skillbench/runs/claude-20260503T144419.142963000-incident-review/raw/stderr.log"
+  ],
+  "started_at": "2026-05-03T15:44:19.143028+01:00",
+  "finished_at": "2026-05-03T15:44:34.06602+01:00",
+  "exit_code": 0
+}

@@ -1,0 +1,87 @@
+{
+  "run_id": "claude-20260503T143901.527407000-algorithm-reading",
+  "agent": "claude",
+  "case": {
+    "id": "algorithm-reading",
+    "prompt": "Use the doc-reading-reviewer skill to explain the reading algorithm note.\nReturn sections named Algorithm, Failure Modes, Evaluation Ideas, and Improvement Hypothesis.\nKeep the answer concise and evidence-based.\n",
+    "expected_skill": "doc-reading-reviewer",
+    "workspace_fixture": "",
+    "timeout_seconds": 600,
+    "assertions": {
+      "final_contains": [
+        "Algorithm",
+        "Failure Modes",
+        "Evaluation Ideas",
+        "Improvement Hypothesis",
+        "chunk",
+        "citation"
+      ],
+      "tool_called": [],
+      "tool_not_called": [],
+      "files_created": []
+    },
+    "rubric": {
+      "output_quality": "Does the answer connect failure modes to evaluation ideas?",
+      "skill_adherence": "Does the answer use a repeatable document-reading process?",
+      "task_success": "Does the answer explain the algorithm note and produce the requested sections?"
+    }
+  },
+  "skill": {
+    "name": "doc-reading-reviewer",
+    "path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-2744540290",
+    "skill_path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-2744540290/SKILL.md",
+    "fingerprint": "eb7e839a7bdc2df7"
+  },
+  "exposure": "rendered_fallback",
+  "events": [
+    {
+      "type": "error",
+      "timestamp": "2026-05-03T15:39:03.721708+01:00",
+      "text": "Error: When using --print, --output-format=stream-json requires --verbose"
+    }
+  ],
+  "metrics": {
+    "overall": 11.8,
+    "task_success": 0,
+    "skill_use": 0,
+    "skill_adherence": 0,
+    "output_quality": 0,
+    "tool_health": 75,
+    "efficiency": 85,
+    "safety_failure": false,
+    "deterministic_fail": true,
+    "assertions": [
+      {
+        "name": "final_contains:Algorithm",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Failure Modes",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Evaluation Ideas",
+        "passed": false
+      },
+      {
+        "name": "final_contains:Improvement Hypothesis",
+        "passed": false
+      },
+      {
+        "name": "final_contains:chunk",
+        "passed": false
+      },
+      {
+        "name": "final_contains:citation",
+        "passed": false
+      }
+    ]
+  },
+  "raw_log_paths": [
+    ".skillbench/runs/claude-20260503T143901.527407000-algorithm-reading/raw/stdout.jsonl",
+    ".skillbench/runs/claude-20260503T143901.527407000-algorithm-reading/raw/stderr.log"
+  ],
+  "started_at": "2026-05-03T15:39:01.52747+01:00",
+  "finished_at": "2026-05-03T15:39:03.721674+01:00",
+  "exit_code": 1
+}

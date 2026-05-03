@@ -1,0 +1,37 @@
+{
+  "overall": 96.3,
+  "task_success": 100,
+  "skill_use": 100,
+  "skill_adherence": 100,
+  "output_quality": 80,
+  "tool_health": 100,
+  "efficiency": 85,
+  "safety_failure": false,
+  "deterministic_fail": false,
+  "assertions": [
+    {
+      "name": "final_contains:Summary",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Key Facts",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Risks",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Next Actions",
+      "passed": true
+    },
+    {
+      "name": "final_contains:18%",
+      "passed": true
+    },
+    {
+      "name": "final_contains:12 accounts",
+      "passed": true
+    }
+  ]
+}

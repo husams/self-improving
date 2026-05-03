@@ -1,0 +1,73 @@
+cases:
+  - id: summarize-customer-churn
+    prompt: |
+      Use the doc-reading-reviewer skill to summarize the customer churn note.
+      Return sections named Summary, Key Facts, Risks, and Next Actions.
+      Cite the concrete facts you used from the document.
+    expected_skill: doc-reading-reviewer
+    fixture_path: fixtures/customer-churn-note.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "Summary"
+        - "Key Facts"
+        - "Risks"
+        - "Next Actions"
+        - "18%"
+        - "12 accounts"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer summarize the churn note and include the requested sections?"
+      skill_adherence: "Does the answer show a deliberate read, extract, verify, and respond workflow?"
+      output_quality: "Does the answer cite concrete facts and avoid unsupported claims?"
+
+  - id: incident-review
+    prompt: |
+      Use the doc-reading-reviewer skill to review the incident report.
+      Return sections named Timeline, Root Cause, Customer Impact, and Follow-up Checks.
+      Do not invent facts that are not in the fixture.
+    expected_skill: doc-reading-reviewer
+    fixture_path: fixtures/payment-incident.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "Timeline"
+        - "Root Cause"
+        - "Customer Impact"
+        - "Follow-up Checks"
+        - "09:42"
+        - "idempotency"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer identify the timeline, root cause, impact, and follow-up checks?"
+      skill_adherence: "Does the answer separate evidence from recommendations?"
+      output_quality: "Does the answer stay grounded in the incident text?"
+
+  - id: algorithm-reading
+    prompt: |
+      Use the doc-reading-reviewer skill to explain the reading algorithm note.
+      Return sections named Algorithm, Failure Modes, Evaluation Ideas, and Improvement Hypothesis.
+      Keep the answer concise and evidence-based.
+    expected_skill: doc-reading-reviewer
+    fixture_path: fixtures/reading-algorithm-note.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "Algorithm"
+        - "Failure Modes"
+        - "Evaluation Ideas"
+        - "Improvement Hypothesis"
+        - "chunk"
+        - "citation"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer explain the algorithm note and produce the requested sections?"
+      skill_adherence: "Does the answer use a repeatable document-reading process?"
+      output_quality: "Does the answer connect failure modes to evaluation ideas?"
+

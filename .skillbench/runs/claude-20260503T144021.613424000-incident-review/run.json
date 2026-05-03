@@ -1,0 +1,583 @@
+{
+  "run_id": "claude-20260503T144021.613424000-incident-review",
+  "agent": "claude",
+  "case": {
+    "id": "incident-review",
+    "prompt": "Use the doc-reading-reviewer skill to review the incident report.\nReturn sections named Timeline, Root Cause, Customer Impact, and Follow-up Checks.\nDo not invent facts that are not in the fixture.\n",
+    "expected_skill": "doc-reading-reviewer",
+    "workspace_fixture": "",
+    "timeout_seconds": 600,
+    "assertions": {
+      "final_contains": [
+        "Timeline",
+        "Root Cause",
+        "Customer Impact",
+        "Follow-up Checks",
+        "09:42",
+        "idempotency"
+      ],
+      "tool_called": [],
+      "tool_not_called": [],
+      "files_created": []
+    },
+    "rubric": {
+      "output_quality": "Does the answer stay grounded in the incident text?",
+      "skill_adherence": "Does the answer separate evidence from recommendations?",
+      "task_success": "Does the answer identify the timeline, root cause, impact, and follow-up checks?"
+    }
+  },
+  "skill": {
+    "name": "doc-reading-reviewer",
+    "path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-3048737172",
+    "skill_path": "/var/folders/07/p__xlp357ps_8_fb3yhffmrh0000gn/T/skillbench-candidate-3048737172/SKILL.md",
+    "fingerprint": "eb7e839a7bdc2df7"
+  },
+  "exposure": "rendered_fallback",
+  "events": [
+    {
+      "type": "assistant_message",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "role": "assistant",
+      "text": "I'll invoke the doc-reading-reviewer skill and locate the incident report fixture first.",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_015UqrKZsEwK3Ga1qTXBpspQ",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I'll invoke the doc-reading-reviewer skill and locate the incident report fixture first."
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 9697,
+            "cache_read_input_tokens": 13703,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 9697,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "9b1b9f4e-eb22-469a-8348-a2ebc313df8e"
+      }
+    },
+    {
+      "type": "skill_invocation",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "name": "Skill",
+      "call_id": "toolu_01HGW8hb779aHuTCdsEdNRZx",
+      "text": "{\"skill\":\"doc-reading-reviewer\"}",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_015UqrKZsEwK3Ga1qTXBpspQ",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01HGW8hb779aHuTCdsEdNRZx",
+              "name": "Skill",
+              "input": {
+                "skill": "doc-reading-reviewer"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 9697,
+            "cache_read_input_tokens": 13703,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 9697,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "a4a4cf57-54c4-4962-9cf3-24cf84ee9b8b"
+      }
+    },
+    {
+      "type": "user_message",
+      "timestamp": "2026-05-03T14:40:28.583Z",
+      "role": "user",
+      "text": "<tool_use_error>Unknown skill: doc-reading-reviewer</tool_use_error>",
+      "raw": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "<tool_use_error>Unknown skill: doc-reading-reviewer</tool_use_error>",
+              "is_error": true,
+              "tool_use_id": "toolu_01HGW8hb779aHuTCdsEdNRZx"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "1dab9f0d-720b-4fb7-8dc5-f8bee42377fe",
+        "timestamp": "2026-05-03T14:40:28.583Z",
+        "tool_use_result": "Error: Unknown skill: doc-reading-reviewer"
+      }
+    },
+    {
+      "type": "assistant_message",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "role": "assistant",
+      "text": "Let me find the incident report fixture in the workspace.",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01NGWDUpqBhRhBpJ4aekkd7D",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Let me find the incident report fixture in the workspace."
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 346,
+            "cache_read_input_tokens": 23400,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 346,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 9,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "07bea2d5-e04f-4ded-9df2-62f62bd04dc8"
+      }
+    },
+    {
+      "type": "tool_call",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "name": "Glob",
+      "call_id": "toolu_01GHuFWAwLwVjt3UU5Q3qSNq",
+      "text": "{\"pattern\":\"**/*incident*\"}",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01NGWDUpqBhRhBpJ4aekkd7D",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01GHuFWAwLwVjt3UU5Q3qSNq",
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*incident*"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 346,
+            "cache_read_input_tokens": 23400,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 346,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 9,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "5de78a58-5ac1-406b-b307-762c1956390a"
+      }
+    },
+    {
+      "type": "user_message",
+      "timestamp": "2026-05-03T14:40:31.104Z",
+      "role": "user",
+      "text": "Permission to use Glob has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed.",
+      "raw": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "Permission to use Glob has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed.",
+              "is_error": true,
+              "tool_use_id": "toolu_01GHuFWAwLwVjt3UU5Q3qSNq"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "b5ffc926-c2dc-4ed9-ab8f-579bc52d459f",
+        "timestamp": "2026-05-03T14:40:31.104Z",
+        "tool_use_result": "Error: Permission to use Glob has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed."
+      }
+    },
+    {
+      "type": "tool_call",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "name": "Glob",
+      "call_id": "toolu_01MiGYRJCKgJKYxsmj2WZF6s",
+      "text": "{\"pattern\":\"**/*fixture*\"}",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01NGWDUpqBhRhBpJ4aekkd7D",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01MiGYRJCKgJKYxsmj2WZF6s",
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*fixture*"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 346,
+            "cache_read_input_tokens": 23400,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 346,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 9,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "727f9f79-a72e-4e01-8ffd-06a889ee591d"
+      }
+    },
+    {
+      "type": "user_message",
+      "timestamp": "2026-05-03T14:40:31.291Z",
+      "role": "user",
+      "text": "Permission to use Glob has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed.",
+      "raw": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "Permission to use Glob has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed.",
+              "is_error": true,
+              "tool_use_id": "toolu_01MiGYRJCKgJKYxsmj2WZF6s"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "2a1e2113-cbc5-4501-927e-644ca6f592be",
+        "timestamp": "2026-05-03T14:40:31.291Z",
+        "tool_use_result": "Error: Permission to use Glob has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed."
+      }
+    },
+    {
+      "type": "tool_call",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "name": "Grep",
+      "call_id": "toolu_01FQ7E4QzoZLw9mUK4HZchvE",
+      "text": "{\"-i\":true,\"output_mode\":\"files_with_matches\",\"path\":\"/Users/husam/workspace/self-imprving\",\"pattern\":\"incident|fixture\"}",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01EExhChv2ResLpbwgCuAUNG",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01FQ7E4QzoZLw9mUK4HZchvE",
+              "name": "Grep",
+              "input": {
+                "pattern": "incident|fixture",
+                "path": "/Users/husam/workspace/self-imprving",
+                "output_mode": "files_with_matches",
+                "-i": true
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 514,
+            "cache_read_input_tokens": 23746,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 514,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "85716cfd-db38-492e-b0b2-30aca6d2ba89"
+      }
+    },
+    {
+      "type": "user_message",
+      "timestamp": "2026-05-03T14:40:33.911Z",
+      "role": "user",
+      "text": "<tool_use_error>Path does not exist: /Users/husam/workspace/self-imprving. Note: your current working directory is /Users/husam/workspace/self-imprving .</tool_use_error>",
+      "raw": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "<tool_use_error>Path does not exist: /Users/husam/workspace/self-imprving. Note: your current working directory is /Users/husam/workspace/self-imprving .</tool_use_error>",
+              "is_error": true,
+              "tool_use_id": "toolu_01FQ7E4QzoZLw9mUK4HZchvE"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "cf5943c0-2cc1-46ff-a89c-044d5d5e03d6",
+        "timestamp": "2026-05-03T14:40:33.911Z",
+        "tool_use_result": "Error: Path does not exist: /Users/husam/workspace/self-imprving. Note: your current working directory is /Users/husam/workspace/self-imprving ."
+      }
+    },
+    {
+      "type": "tool_call",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "name": "Grep",
+      "call_id": "toolu_01FAWtabo4GBMViDSNXZrDLZ",
+      "text": "{\"-i\":true,\"output_mode\":\"files_with_matches\",\"pattern\":\"incident|fixture\"}",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_01LGfa2cgrYbnThiUoiZtkaM",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01FAWtabo4GBMViDSNXZrDLZ",
+              "name": "Grep",
+              "input": {
+                "pattern": "incident|fixture",
+                "-i": true,
+                "output_mode": "files_with_matches"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 231,
+            "cache_read_input_tokens": 24260,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 231,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "b43adf81-7473-458e-8a2a-0d78c82f8fc9"
+      }
+    },
+    {
+      "type": "user_message",
+      "timestamp": "2026-05-03T14:40:36.057Z",
+      "role": "user",
+      "text": "Permission to use Grep has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed.",
+      "raw": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "Permission to use Grep has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed.",
+              "is_error": true,
+              "tool_use_id": "toolu_01FAWtabo4GBMViDSNXZrDLZ"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "b675975f-7907-43a4-80e3-7ac1debb2e7a",
+        "timestamp": "2026-05-03T14:40:36.057Z",
+        "tool_use_result": "Error: Permission to use Grep has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed."
+      }
+    },
+    {
+      "type": "assistant_message",
+      "timestamp": "0001-01-01T00:00:00Z",
+      "role": "assistant",
+      "text": "I can't locate the incident report. The `doc-reading-reviewer` skill loaded successfully (it was provided inline), but I have no document to review — no file was attached and file search is restricted in the current permission mode.\n\nCould you either:\n1. **Paste the incident report text** directly into the chat, or\n2. **Provide the file path** so I can read it with the Read tool?\n\nOnce I have the document, I'll return the four requested sections (Timeline, Root Cause, Customer Impact, Follow-up Checks) strictly from what's in the fixture.",
+      "raw": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-sonnet-4-6",
+          "id": "msg_0117yvjd72jWQUPsR9nkugu9",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I can't locate the incident report. The `doc-reading-reviewer` skill loaded successfully (it was provided inline), but I have no document to review — no file was attached and file search is restricted in the current permission mode.\n\nCould you either:\n1. **Paste the incident report text** directly into the chat, or\n2. **Provide the file path** so I can read it with the Read tool?\n\nOnce I have the document, I'll return the four requested sections (Timeline, Root Cause, Customer Impact, Follow-up Checks) strictly from what's in the fixture."
+            }
+          ],
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 1,
+            "cache_creation_input_tokens": 292,
+            "cache_read_input_tokens": 24491,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 292,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 8,
+            "service_tier": "standard",
+            "inference_geo": "global"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "05207efb-49e2-44d0-89f1-2399c16c1c82",
+        "uuid": "0026f3c3-4d46-4dd3-8ecb-6fd4721fb0e5"
+      }
+    }
+  ],
+  "metrics": {
+    "overall": 60,
+    "task_success": 66.66666666666666,
+    "skill_use": 100,
+    "skill_adherence": 100,
+    "output_quality": 80,
+    "tool_health": 100,
+    "efficiency": 60,
+    "safety_failure": false,
+    "deterministic_fail": true,
+    "assertions": [
+      {
+        "name": "final_contains:Timeline",
+        "passed": true
+      },
+      {
+        "name": "final_contains:Root Cause",
+        "passed": true
+      },
+      {
+        "name": "final_contains:Customer Impact",
+        "passed": true
+      },
+      {
+        "name": "final_contains:Follow-up Checks",
+        "passed": true
+      },
+      {
+        "name": "final_contains:09:42",
+        "passed": false
+      },
+      {
+        "name": "final_contains:idempotency",
+        "passed": false
+      }
+    ],
+    "notes": [
+      "deterministic assertion cap applied"
+    ]
+  },
+  "raw_log_paths": [
+    ".skillbench/runs/claude-20260503T144021.613424000-incident-review/raw/stdout.jsonl",
+    ".skillbench/runs/claude-20260503T144021.613424000-incident-review/raw/stderr.log"
+  ],
+  "started_at": "2026-05-03T15:40:21.613491+01:00",
+  "finished_at": "2026-05-03T15:40:45.373951+01:00",
+  "exit_code": 0
+}

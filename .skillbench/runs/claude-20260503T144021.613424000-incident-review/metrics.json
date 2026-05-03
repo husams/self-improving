@@ -1,0 +1,40 @@
+{
+  "overall": 60,
+  "task_success": 66.66666666666666,
+  "skill_use": 100,
+  "skill_adherence": 100,
+  "output_quality": 80,
+  "tool_health": 100,
+  "efficiency": 60,
+  "safety_failure": false,
+  "deterministic_fail": true,
+  "assertions": [
+    {
+      "name": "final_contains:Timeline",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Root Cause",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Customer Impact",
+      "passed": true
+    },
+    {
+      "name": "final_contains:Follow-up Checks",
+      "passed": true
+    },
+    {
+      "name": "final_contains:09:42",
+      "passed": false
+    },
+    {
+      "name": "final_contains:idempotency",
+      "passed": false
+    }
+  ],
+  "notes": [
+    "deterministic assertion cap applied"
+  ]
+}
