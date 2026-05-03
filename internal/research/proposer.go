@@ -15,6 +15,7 @@ type ProposerInput struct {
 	Case         model.TestCase
 	Baseline     model.NormalizedRun
 	History      []Trial
+	TrialIndex   int
 }
 
 type Candidate struct {

@@ -111,6 +111,7 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 			Case:         tc,
 			Baseline:     baseline,
 			History:      hist,
+			TrialIndex:   i,
 		})
 		if err != nil {
 			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err

@@ -11,6 +11,7 @@ go run ./cmd/skillbench suite --agent claude --skill ~/.claude/skills/my-skill -
 go run ./cmd/skillbench extract --agent copilot --latest
 go run ./cmd/skillbench analyze --run .skillbench/runs/<run-id>
 go run ./cmd/skillbench research --agent codex --skill ~/.codex/skills/cognee-memory --cases cases.yaml --max-trials 20 --min-improvement 5
+go run ./cmd/skillbench research --agent claude --skill ... --cases ... --proposer llm --proposer-agent claude
 ```
 
 Artifacts are written under `.skillbench/runs` and `.skillbench/proposals`.
@@ -28,3 +29,16 @@ Artifacts are written under `.skillbench/runs` and `.skillbench/proposals`.
 7. Write a proposal under `.skillbench/proposals/<skill>/<trial-id>/` only when the candidate clears the improvement gate.
 
 The live skill directory is never modified.
+
+The proposer is pluggable: `--proposer=deterministic` (default) uses six
+hardcoded mutation strategies; `--proposer=llm` calls the configured agent
+and parses a strict JSON response (`{strategy, hypothesis, skill_md}`),
+falling back to the deterministic proposer on any failure.
+
+## Branch-advance mode (operating manual)
+
+For an unattended LLM agent driving the loop directly — editing SKILL.md
+in place on a `skillbench/<tag>` branch, using `skillbench suite` as the
+per-trial harness, and using git for keep/reset — see
+[`program.md`](./program.md). This mode does modify the live SKILL.md on
+the branch, so operators must merge consciously.
