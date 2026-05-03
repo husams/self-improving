@@ -34,6 +34,20 @@ func parseCodex(data []byte) ([]model.Event, error) {
 				evType = model.EventUserMessage
 			}
 			return []model.Event{{Type: evType, Role: role, Text: textFrom(item["content"]), Timestamp: ts, Raw: raw}}
+		case "agent_message":
+			text, _ := item["text"].(string)
+			if text == "" {
+				text = textFrom(item["content"])
+			}
+			return []model.Event{{Type: model.EventAssistant, Role: "assistant", Text: text, Timestamp: ts, Raw: raw}}
+		case "user_message":
+			text, _ := item["text"].(string)
+			if text == "" {
+				text = textFrom(item["content"])
+			}
+			return []model.Event{{Type: model.EventUserMessage, Role: "user", Text: text, Timestamp: ts, Raw: raw}}
+		case "agent_reasoning":
+			return nil
 		case "function_call", "tool_search_call", "web_search_call", "custom_tool_call":
 			name, _ := item["name"].(string)
 			if name == "" {

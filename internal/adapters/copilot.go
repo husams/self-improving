@@ -21,9 +21,17 @@ func parseCopilot(data []byte) ([]model.Event, error) {
 		}
 		switch typ {
 		case "user.message":
-			return []model.Event{{Type: model.EventUserMessage, Role: "user", Text: textFrom(data["message"]), Timestamp: ts, Raw: raw}}
+			text := textFrom(data["message"])
+			if text == "" {
+				text = textFrom(data["content"])
+			}
+			return []model.Event{{Type: model.EventUserMessage, Role: "user", Text: text, Timestamp: ts, Raw: raw}}
 		case "assistant.message":
-			return []model.Event{{Type: model.EventAssistant, Role: "assistant", Text: textFrom(data["message"]), Timestamp: ts, Raw: raw}}
+			text := textFrom(data["message"])
+			if text == "" {
+				text = textFrom(data["content"])
+			}
+			return []model.Event{{Type: model.EventAssistant, Role: "assistant", Text: text, Timestamp: ts, Raw: raw}}
 		case "tool.execution_start":
 			name := stringValue(data["toolName"])
 			if name == "" {

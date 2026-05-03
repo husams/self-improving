@@ -72,9 +72,9 @@ func (CLI) Run(ctx context.Context, spec Spec) (Result, error) {
 func command(spec Spec) (string, []string, error) {
 	switch spec.Agent {
 	case model.AgentCodex:
-		return "codex", []string{"exec", "--json", "--sandbox", "read-only", "--ask-for-approval", "never", "--skip-git-repo-check", "-C", spec.WorkDir, spec.Prompt}, nil
+		return "codex", []string{"exec", "--json", "--sandbox", "read-only", "--skip-git-repo-check", "-C", spec.WorkDir, spec.Prompt}, nil
 	case model.AgentClaude:
-		return "claude", []string{"-p", spec.Prompt, "--output-format", "stream-json", "--verbose", "--include-hook-events", "--permission-mode", "dontAsk"}, nil
+		return "claude", []string{"-p", spec.Prompt, "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"}, nil
 	case model.AgentCopilot:
 		return "copilot", []string{"-p", spec.Prompt, "--output-format", "json", "--stream", "off", "--log-level", "error", "--no-custom-instructions"}, nil
 	default:

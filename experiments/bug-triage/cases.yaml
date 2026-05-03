@@ -1,0 +1,104 @@
+cases:
+  - id: outage-payments
+    prompt: |
+      Use the bug-triage skill to triage this bug report.
+      Output four labeled sections: "Priority", "Rationale", "Impact",
+      and "Recommended Action".
+      The Priority section must contain exactly one of: P0, P1, P2, or P3.
+      Be concrete. Cite the most important facts from the report.
+    expected_skill: bug-triage
+    fixture_path: fixtures/payment-gateway-down.md
+    timeout_seconds: 300
+    assertions:
+      final_contains:
+        - "Priority"
+        - "Rationale"
+        - "Impact"
+        - "Recommended Action"
+        - "P0"
+        - "revenue"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer give priority P0 with the four required sections?"
+      skill_adherence: "Does the answer cite concrete facts from the report?"
+      output_quality: "Does the rationale connect outage severity to a recommended action?"
+
+  - id: regression-search
+    prompt: |
+      Use the bug-triage skill to triage this bug report.
+      Output four labeled sections: "Priority", "Rationale", "Impact",
+      and "Recommended Action".
+      The Priority section must contain exactly one of: P0, P1, P2, or P3.
+      Be concrete. Cite the most important facts from the report.
+    expected_skill: bug-triage
+    fixture_path: fixtures/search-pagination-broken.md
+    timeout_seconds: 300
+    assertions:
+      final_contains:
+        - "Priority"
+        - "Rationale"
+        - "Impact"
+        - "Recommended Action"
+        - "P1"
+        - "workaround"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer give priority P1 (regression with workaround) with the four required sections?"
+      skill_adherence: "Does the answer note the regression and revenue impact while acknowledging the workaround?"
+      output_quality: "Does the answer balance severity signals against mitigations?"
+
+  - id: intermittent-rate-limit
+    prompt: |
+      Use the bug-triage skill to triage this bug report.
+      Output four labeled sections: "Priority", "Rationale", "Impact",
+      and "Recommended Action".
+      The Priority section must contain exactly one of: P0, P1, P2, or P3.
+      Be concrete. Cite the most important facts from the report.
+    expected_skill: bug-triage
+    fixture_path: fixtures/api-rate-limit-flaky.md
+    timeout_seconds: 300
+    assertions:
+      final_contains:
+        - "Priority"
+        - "Rationale"
+        - "Impact"
+        - "Recommended Action"
+        - "P2"
+        - "workaround"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer give priority P2 (intermittent, workaround exists) with the four required sections?"
+      skill_adherence: "Does the answer note the 2% rate and the available workaround?"
+      output_quality: "Does the answer recommend an investigation rather than overreaction?"
+
+  - id: cosmetic-admin
+    prompt: |
+      Use the bug-triage skill to triage this bug report.
+      Output four labeled sections: "Priority", "Rationale", "Impact",
+      and "Recommended Action".
+      The Priority section must contain exactly one of: P0, P1, P2, or P3.
+      Be concrete. Cite the most important facts from the report.
+    expected_skill: bug-triage
+    fixture_path: fixtures/admin-sort-misalign.md
+    timeout_seconds: 300
+    assertions:
+      final_contains:
+        - "Priority"
+        - "Rationale"
+        - "Impact"
+        - "Recommended Action"
+        - "P3"
+        - "cosmetic"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer give priority P3 (cosmetic, internal-only) with the four required sections?"
+      skill_adherence: "Does the answer note the cosmetic/internal nature?"
+      output_quality: "Does the answer suggest a low-effort fix?"
