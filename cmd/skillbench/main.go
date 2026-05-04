@@ -14,11 +14,69 @@ import (
 	"skillbench/internal/judge"
 	"skillbench/internal/metrics"
 	"skillbench/internal/model"
+	"skillbench/internal/quality"
+	"skillbench/internal/quality/similarity"
 	"skillbench/internal/research"
 	"skillbench/internal/runner"
 	"skillbench/internal/skills"
 	"skillbench/internal/store"
 )
+
+// qualityOpts collects the --quality-* CLI flags and the runtime knobs
+// quality.Build needs. registerQualityFlags returns the opts plus a finalize
+// closure to invoke after fs.Parse.
+type qualityOpts struct {
+	enabled          bool
+	method           string
+	agent            model.Agent
+	systemFile       string
+	scriptTimeoutSec int
+}
+
+func registerQualityFlags(fs *flag.FlagSet) (*qualityOpts, func()) {
+	o := &qualityOpts{}
+	on := fs.String("quality", "on", "deterministic quality channel: on|off")
+	fs.StringVar(&o.method, "quality-similarity-method", "rouge", "similarity backend: rouge|bleu|llm|embedding")
+	agent := fs.String("quality-similarity-agent", "", "agent used by the LLM similarity backend (required when method=llm)")
+	fs.StringVar(&o.systemFile, "quality-similarity-system", "", "path to similarity system prompt (overrides embedded default)")
+	fs.IntVar(&o.scriptTimeoutSec, "quality-script-timeout", 30, "per-script timeout in seconds")
+	finalize := func() {
+		o.enabled = strings.ToLower(strings.TrimSpace(*on)) != "off"
+		o.agent = model.Agent(*agent)
+	}
+	return o, finalize
+}
+
+// buildQualityRunner mirrors buildJudge: constructs a quality.Runner for the
+// given case, or returns nil when quality is off / the case has no checks.
+// Errors at this stage are case-authoring errors (typos in the YAML) — they
+// are returned so the caller surfaces them rather than silently dropping.
+func buildQualityRunner(tc model.TestCase, opts *qualityOpts, runnerAgent model.Agent) (*quality.Runner, error) {
+	if opts == nil || !opts.enabled {
+		return nil, nil
+	}
+	if len(tc.QualityChecks) == 0 {
+		return nil, nil
+	}
+	bo := quality.BuildOptions{
+		ScriptTimeout:    opts.scriptTimeoutSec,
+		SimilarityMethod: opts.method,
+	}
+	if strings.EqualFold(opts.method, "llm") {
+		simAgent := opts.agent
+		if simAgent == "" {
+			simAgent = runnerAgent
+		}
+		if simAgent == "" {
+			return nil, fmt.Errorf("--quality-similarity-method=llm requires --quality-similarity-agent or a runner --agent")
+		}
+		pr := func(ctx context.Context, prompt string) (string, error) {
+			return runJudge(ctx, simAgent, prompt) // reuse judge runner shape; same parse contract
+		}
+		bo.SimilarityRunner = quality.SimilarityRunner(similarity.BuildLLMRunner(opts.systemFile, pr))
+	}
+	return quality.Build(tc, bo)
+}
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -63,7 +121,10 @@ Commands:
           [--proposer deterministic|llm] [--proposer-agent <agent>] [--proposer-system <path>] [--history-window 10]
 
 Common flags (test, suite, research, analyze):
-  [--judge none|llm] [--judge-agent <agent>] [--judge-system <path>]`)
+  [--judge none|llm] [--judge-agent <agent>] [--judge-system <path>]
+  [--quality on|off] [--quality-similarity-method rouge|bleu|llm|embedding]
+  [--quality-similarity-agent <agent>] [--quality-similarity-system <path>]
+  [--quality-script-timeout 30]`)
 }
 
 func runTest(args []string) error {
@@ -79,9 +140,11 @@ func runTest(args []string) error {
 	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
 	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
 	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
+	qOpts, qFinalize := registerQualityFlags(fs)
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
+	qFinalize()
 	tc, err := loadCase(*casePath, *prompt)
 	if err != nil {
 		return err
@@ -93,7 +156,11 @@ func runTest(args []string) error {
 	if err != nil {
 		return err
 	}
-	run, err := executeCaseWithJudge(context.Background(), agent, *skillPath, tc, j)
+	qr, err := buildQualityRunner(tc, qOpts, agent)
+	if err != nil {
+		return err
+	}
+	run, err := executeCaseWithJudgeAndQuality(context.Background(), agent, *skillPath, tc, j, qr)
 	if err != nil {
 		return err
 	}
@@ -111,9 +178,11 @@ func runSuite(args []string) error {
 	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
 	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
 	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
+	qOpts, qFinalize := registerQualityFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	qFinalize()
 	cases, err := loadCases(*casesPath)
 	if err != nil {
 		return err
@@ -124,7 +193,13 @@ func runSuite(args []string) error {
 	}
 	var failed int
 	for _, tc := range cases {
-		run, err := executeCaseWithJudge(context.Background(), model.Agent(*agent), *skillPath, tc, j)
+		qr, qerr := buildQualityRunner(tc, qOpts, model.Agent(*agent))
+		if qerr != nil {
+			failed++
+			fmt.Fprintf(os.Stderr, "%s: %v\n", tc.ID, qerr)
+			continue
+		}
+		run, err := executeCaseWithJudgeAndQuality(context.Background(), model.Agent(*agent), *skillPath, tc, j, qr)
 		if err != nil {
 			failed++
 			fmt.Fprintf(os.Stderr, "%s: %v\n", tc.ID, err)
@@ -179,9 +254,11 @@ func runAnalyze(args []string) error {
 	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
 	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
 	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
+	qOpts, qFinalize := registerQualityFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	qFinalize()
 	if *runPath == "" {
 		return fmt.Errorf("--run is required")
 	}
@@ -193,8 +270,14 @@ func runAnalyze(args []string) error {
 	if err != nil {
 		return err
 	}
+	qr, qerr := buildQualityRunner(run.Case, qOpts, run.Agent)
+	if qerr != nil {
+		return qerr
+	}
+	var v judge.Verdict
 	if j != nil {
-		v, jerr := j.Score(context.Background(), judge.Input{
+		var jerr error
+		v, jerr = j.Score(context.Background(), judge.Input{
 			Case:   run.Case,
 			Skill:  run.Skill,
 			Events: run.Events,
@@ -203,10 +286,15 @@ func runAnalyze(args []string) error {
 		if jerr != nil {
 			v = judge.Verdict{Status: "fallback:error: " + jerr.Error()}
 		}
-		run.Metrics = metrics.ScoreWithVerdict(run.Case, run.Events, v)
-	} else {
-		run.Metrics = metrics.Score(run.Case, run.Events)
 	}
+	var qSig *metrics.QualitySignal
+	if qr != nil {
+		s := qr.Run(context.Background(), quality.Input{Case: run.Case, Final: finalAssistant(run.Events)})
+		if s != nil {
+			qSig = &metrics.QualitySignal{Score: s.Score, Notes: s.Notes}
+		}
+	}
+	run.Metrics = metrics.ScoreWithVerdictAndQuality(run.Case, run.Events, v, qSig)
 	if err := store.WriteRun(*runPath, run); err != nil {
 		return err
 	}
@@ -229,9 +317,11 @@ func runResearch(args []string) error {
 	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
 	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
 	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
+	qOpts, qFinalize := registerQualityFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	qFinalize()
 	cases, err := loadCases(*casesPath)
 	if err != nil {
 		return err
@@ -244,11 +334,12 @@ func runResearch(args []string) error {
 	if err != nil {
 		return err
 	}
-	executor := executeCase
-	if j != nil {
-		executor = func(ctx context.Context, a model.Agent, sp string, tc model.TestCase) (model.NormalizedRun, error) {
-			return executeCaseWithJudge(ctx, a, sp, tc, j)
+	executor := func(ctx context.Context, a model.Agent, sp string, tc model.TestCase) (model.NormalizedRun, error) {
+		qr, qerr := buildQualityRunner(tc, qOpts, a)
+		if qerr != nil {
+			return model.NormalizedRun{}, qerr
 		}
+		return executeCaseWithJudgeAndQuality(ctx, a, sp, tc, j, qr)
 	}
 	cfg := research.Config{
 		Agent:          model.Agent(*agent),
@@ -368,7 +459,14 @@ func runProposer(ctx context.Context, agent model.Agent, prompt string) (string,
 }
 
 func executeCase(ctx context.Context, agent model.Agent, skillPath string, tc model.TestCase) (model.NormalizedRun, error) {
-	return executeCaseWithJudge(ctx, agent, skillPath, tc, nil)
+	return executeCaseWithJudgeAndQuality(ctx, agent, skillPath, tc, nil, nil)
+}
+
+// executeCaseWithJudge is the legacy wrapper for callers that don't run the
+// deterministic quality channel. New plumbing should call
+// executeCaseWithJudgeAndQuality directly.
+func executeCaseWithJudge(ctx context.Context, agent model.Agent, skillPath string, tc model.TestCase, j judge.Judge) (model.NormalizedRun, error) {
+	return executeCaseWithJudgeAndQuality(ctx, agent, skillPath, tc, j, nil)
 }
 
 func finalAssistant(events []model.Event) string {
@@ -380,10 +478,12 @@ func finalAssistant(events []model.Event) string {
 	return ""
 }
 
-// executeCaseWithJudge runs a case and, if a non-nil Judge is supplied, calls
-// it on the produced events to enrich scoring via metrics.ScoreWithVerdict.
-// Pass nil to preserve the legacy heuristic-only path bit-identically.
-func executeCaseWithJudge(ctx context.Context, agent model.Agent, skillPath string, tc model.TestCase, j judge.Judge) (model.NormalizedRun, error) {
+// executeCaseWithJudgeAndQuality runs a case and, when supplied, threads the
+// result through the LLM judge and the deterministic quality channel before
+// scoring via metrics.ScoreWithVerdictAndQuality. Pass nil for both to
+// preserve the legacy heuristic-only path bit-identically. Order: assertions
+// (inside metrics) → quality → judge → score.
+func executeCaseWithJudgeAndQuality(ctx context.Context, agent model.Agent, skillPath string, tc model.TestCase, j judge.Judge, qr *quality.Runner) (model.NormalizedRun, error) {
 	if agent == "" {
 		return model.NormalizedRun{}, fmt.Errorf("agent is required")
 	}
@@ -436,10 +536,12 @@ func executeCaseWithJudge(ctx context.Context, agent model.Agent, skillPath stri
 		FinishedAt:  rr.FinishedAt,
 		ExitCode:    rr.ExitCode,
 	}
+	final := finalAssistant(events)
+	var v judge.Verdict
 	if j != nil {
-		final := finalAssistant(events)
 		// SkillInfo.Content has json:"-" — passed through explicitly here.
-		v, jerr := j.Score(ctx, judge.Input{
+		var jerr error
+		v, jerr = j.Score(ctx, judge.Input{
 			Case:   tc,
 			Skill:  info,
 			Events: events,
@@ -449,10 +551,15 @@ func executeCaseWithJudge(ctx context.Context, agent model.Agent, skillPath stri
 			// Treat judge errors as fallback-style; don't fail the run.
 			v = judge.Verdict{Status: "fallback:error: " + jerr.Error()}
 		}
-		nrun.Metrics = metrics.ScoreWithVerdict(tc, events, v)
-	} else {
-		nrun.Metrics = metrics.Score(tc, events)
 	}
+	var qSig *metrics.QualitySignal
+	if qr != nil {
+		s := qr.Run(ctx, quality.Input{Case: tc, Final: final})
+		if s != nil {
+			qSig = &metrics.QualitySignal{Score: s.Score, Notes: s.Notes}
+		}
+	}
+	nrun.Metrics = metrics.ScoreWithVerdictAndQuality(tc, events, v, qSig)
 	dir, err := store.WriteNewRun(nrun, rr)
 	if err != nil {
 		return model.NormalizedRun{}, err
