@@ -24,6 +24,12 @@ cases:
       task_success: "Does the answer give priority P0 with the four required sections?"
       skill_adherence: "Does the answer cite concrete facts from the report?"
       output_quality: "Does the rationale connect outage severity to a recommended action?"
+    quality_checks:
+      - regex: "P0"
+      - similarity:
+          reference: "Priority: P0. Rationale: revenue impact during the payment outage. Impact: high. Recommended Action: page the on-call engineer."
+          method: rouge
+          threshold: 0.4
 
   - id: regression-search
     prompt: |
