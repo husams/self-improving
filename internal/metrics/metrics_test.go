@@ -153,6 +153,106 @@ func TestScoreWithVerdictTaskSuccessIgnoredWithoutRubric(t *testing.T) {
 	}
 }
 
+// Quality channel: empty quality + empty verdict must equal Score bit-for-bit.
+func TestScoreWithEmptyQualityBitIdentical(t *testing.T) {
+	tc := model.TestCase{
+		ExpectedSkill: "cognee-memory",
+		Assertions: model.Assertions{
+			FinalContains: []string{"dataset"},
+			ToolCalled:    []string{"cognee"},
+		},
+	}
+	events := []model.Event{
+		{Type: model.EventSkillInvocation, Name: "cognee-memory"},
+		{Type: model.EventToolCall, Name: "cognee"},
+		{Type: model.EventToolResult, Text: "ok"},
+		{Type: model.EventAssistant, Text: "The dataset ingest completed successfully with traceable output."},
+	}
+	a := Score(tc, events)
+	b := ScoreWithVerdictAndQuality(tc, events, judge.Verdict{}, nil)
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("Score and ScoreWithVerdictAndQuality(empty,nil) diverged:\n a=%#v\n b=%#v", a, b)
+	}
+}
+
+// Quality channel: deterministic + judge OutputQuality blends 50/50 exactly.
+func TestScoreOutputQualityBlends(t *testing.T) {
+	tc := model.TestCase{
+		QualityChecks: []model.QualityCheckSpec{{Regex: "P0"}},
+		Rubric:        map[string]string{"output_quality": "Is it clear?"},
+	}
+	events := []model.Event{{Type: model.EventAssistant, Text: "ok"}}
+	q := &QualitySignal{Score: 60}
+	v := judge.Verdict{OutputQuality: ptr(80), Status: "ok"}
+	m := ScoreWithVerdictAndQuality(tc, events, v, q)
+	// 0.5*60 + 0.5*80 = 70.
+	if m.OutputQuality != 70 {
+		t.Fatalf("expected blended OutputQuality=70, got %.1f", m.OutputQuality)
+	}
+}
+
+// Quality channel: quality_checks alone (no judge OutputQuality) -> det only.
+// Asymmetry vs TaskSuccess: NO rubric["output_quality"] key required (Q9).
+func TestScoreOutputQualityDeterministicOnlyWhenNoJudge(t *testing.T) {
+	tc := model.TestCase{
+		QualityChecks: []model.QualityCheckSpec{{Regex: "P0"}},
+	}
+	events := []model.Event{{Type: model.EventAssistant, Text: "Priority: P0"}}
+	q := &QualitySignal{Score: 73, Notes: []string{`regex: "P0" matched`}}
+	m := ScoreWithVerdictAndQuality(tc, events, judge.Verdict{}, q)
+	if m.OutputQuality != 73 {
+		t.Fatalf("expected deterministic-only OutputQuality=73, got %.1f", m.OutputQuality)
+	}
+	found := false
+	for _, n := range m.Notes {
+		if n == `quality: regex: "P0" matched` {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("quality note not propagated: %v", m.Notes)
+	}
+}
+
+// Quality channel: failing script counted as 0; metrics layer doesn't crash.
+func TestScoreOutputQualityFailingScriptDoesNotCrash(t *testing.T) {
+	tc := model.TestCase{
+		QualityChecks: []model.QualityCheckSpec{{Script: "exit 1"}},
+	}
+	events := []model.Event{{Type: model.EventAssistant, Text: "x"}}
+	q := &QualitySignal{Score: 0, Notes: []string{"script: exit 1 failed"}}
+	m := ScoreWithVerdictAndQuality(tc, events, judge.Verdict{}, q)
+	if m.OutputQuality != 0 {
+		t.Fatalf("expected OutputQuality=0, got %.1f", m.OutputQuality)
+	}
+	if m.Overall < 0 || m.Overall > 100 {
+		t.Fatalf("Overall out of range: %.2f", m.Overall)
+	}
+}
+
+// Quality channel: DeterministicFail cap still bites with quality=100.
+func TestScoreDeterministicFailCapStillAppliesWithQuality100(t *testing.T) {
+	tc := model.TestCase{
+		ExpectedSkill: "cognee-memory",
+		Assertions: model.Assertions{
+			FinalContains: []string{"missing-token-that-wont-match"},
+		},
+		QualityChecks: []model.QualityCheckSpec{{Regex: "."}},
+	}
+	events := []model.Event{
+		{Type: model.EventSkillInvocation, Name: "cognee-memory"},
+		{Type: model.EventAssistant, Text: "completed something useful with a reasonably long final message"},
+	}
+	q := &QualitySignal{Score: 100}
+	m := ScoreWithVerdictAndQuality(tc, events, judge.Verdict{}, q)
+	if !m.DeterministicFail {
+		t.Fatal("expected deterministic failure")
+	}
+	if m.Overall > 60 {
+		t.Fatalf("deterministic cap not applied with quality=100: overall=%.1f", m.Overall)
+	}
+}
+
 // JudgeStatus is propagated and notes are prefixed.
 func TestScoreWithVerdictPropagatesStatusAndNotes(t *testing.T) {
 	tc := model.TestCase{}

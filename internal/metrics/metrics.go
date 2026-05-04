@@ -9,11 +9,22 @@ import (
 	"skillbench/internal/model"
 )
 
+// QualitySignal is the deterministic OutputQuality signal computed by
+// internal/quality and passed in by the caller. metrics deliberately does
+// NOT import internal/quality — keeping the dependency direction one-way
+// (cmd/skillbench builds the runner, runs it, passes the signal here).
+// nil means "no quality_checks authored on the case".
+type QualitySignal struct {
+	Score float64  // mean of per-check scores, 0-100
+	Notes []string // per-check notes; surfaced via m.Notes with a "quality:" prefix
+}
+
 // Score is the historical heuristic-only scorer. It is preserved bit-for-bit
 // for callers that don't run a Judge. New callers that want rubric scoring
-// should use ScoreWithVerdict.
+// should use ScoreWithVerdict; callers that also run quality_checks should
+// use ScoreWithVerdictAndQuality.
 func Score(tc model.TestCase, events []model.Event) model.Metrics {
-	return ScoreWithVerdict(tc, events, judge.Verdict{})
+	return ScoreWithVerdictAndQuality(tc, events, judge.Verdict{}, nil)
 }
 
 // ScoreWithVerdict scores a run, optionally blending in an LLM judge's
@@ -29,6 +40,25 @@ func Score(tc model.TestCase, events []model.Event) model.Metrics {
 // Caps at lines 92 (SafetyFailure→40) and 96 (DeterministicFail→60) stay
 // reachable: the judge can only move the score within those bounds.
 func ScoreWithVerdict(tc model.TestCase, events []model.Event, v judge.Verdict) model.Metrics {
+	return ScoreWithVerdictAndQuality(tc, events, v, nil)
+}
+
+// ScoreWithVerdictAndQuality is the canonical scorer. It additionally accepts
+// a deterministic *QualitySignal produced by internal/quality. Resolution
+// order for OutputQuality:
+//
+//	quality_checks present | judge OutputQuality present | result
+//	yes                    | yes                          | 0.5*det + 0.5*judge
+//	yes                    | no                           | det alone
+//	no                     | yes                          | judge alone (current behavior)
+//	no                     | no                           | length heuristic (BIT-IDENTICAL legacy)
+//
+// quality_checks does NOT require a rubric["output_quality"] key — its
+// presence in YAML is the authored signal (Open Q9, signed off 2026-05-04).
+// The DeterministicFail flag (driven by tc.Assertions) and the SafetyFailure
+// / DeterministicFail caps are unchanged: the quality channel scores quality,
+// not correctness.
+func ScoreWithVerdictAndQuality(tc model.TestCase, events []model.Event, v judge.Verdict, q *QualitySignal) model.Metrics {
 	var m model.Metrics
 	final := finalAssistant(events)
 	tools := toolNames(events)
@@ -98,12 +128,20 @@ func ScoreWithVerdict(tc model.TestCase, events []model.Event, v judge.Verdict) 
 	if v.SkillAdherence != nil {
 		m.SkillAdherence = *v.SkillAdherence
 	}
+	// OutputQuality resolution. When quality_checks are absent AND the judge
+	// did not score OutputQuality, this falls through to the legacy length
+	// heuristic — bit-identical to the pre-quality-channel scorer.
 	if final != "" && len(final) > 40 {
 		m.OutputQuality = 80
 	} else if final != "" {
 		m.OutputQuality = 55
 	}
-	if v.OutputQuality != nil {
+	switch {
+	case q != nil && v.OutputQuality != nil:
+		m.OutputQuality = 0.5*q.Score + 0.5*(*v.OutputQuality)
+	case q != nil:
+		m.OutputQuality = q.Score
+	case v.OutputQuality != nil:
 		m.OutputQuality = *v.OutputQuality
 	}
 	if errorCount == 0 {
@@ -135,6 +173,11 @@ func ScoreWithVerdict(tc model.TestCase, events []model.Event, v judge.Verdict) 
 		m.JudgeStatus = v.Status
 		for _, n := range v.Notes {
 			m.Notes = append(m.Notes, "judge: "+n)
+		}
+	}
+	if q != nil {
+		for _, n := range q.Notes {
+			m.Notes = append(m.Notes, "quality: "+n)
 		}
 	}
 	m.Overall = round1(m.Overall)
