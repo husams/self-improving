@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillbench/internal/adapters"
+	"skillbench/internal/judge"
 	"skillbench/internal/metrics"
 	"skillbench/internal/model"
 	"skillbench/internal/research"
@@ -59,7 +60,10 @@ Commands:
   extract --agent <agent> --latest | --session <path-or-id>
   analyze --run .skillbench/runs/<run-id>
   research --agent <agent> --skill <path> --cases <cases.yaml> --max-trials 20 --min-improvement 5
-          [--proposer deterministic|llm] [--proposer-agent <agent>] [--proposer-system <path>] [--history-window 10]`)
+          [--proposer deterministic|llm] [--proposer-agent <agent>] [--proposer-system <path>] [--history-window 10]
+
+Common flags (test, suite, research, analyze):
+  [--judge none|llm] [--judge-agent <agent>] [--judge-system <path>]`)
 }
 
 func runTest(args []string) error {
@@ -72,6 +76,9 @@ func runTest(args []string) error {
 	skillPath := fs.String("skill", "", "path to skill directory or SKILL.md")
 	casePath := fs.String("case", "", "case yaml")
 	timeout := fs.Int("timeout", 0, "override timeout seconds")
+	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
+	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
+	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -82,7 +89,11 @@ func runTest(args []string) error {
 	if *timeout > 0 {
 		tc.TimeoutSeconds = *timeout
 	}
-	run, err := executeCase(context.Background(), agent, *skillPath, tc)
+	j, err := buildJudge(*judgeKind, model.Agent(*judgeAgent), agent, *judgeSystem)
+	if err != nil {
+		return err
+	}
+	run, err := executeCaseWithJudge(context.Background(), agent, *skillPath, tc, j)
 	if err != nil {
 		return err
 	}
@@ -97,6 +108,9 @@ func runSuite(args []string) error {
 	agent := fs.String("agent", "", "agent")
 	skillPath := fs.String("skill", "", "path to skill")
 	casesPath := fs.String("cases", "", "cases yaml")
+	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
+	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
+	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -104,9 +118,13 @@ func runSuite(args []string) error {
 	if err != nil {
 		return err
 	}
+	j, err := buildJudge(*judgeKind, model.Agent(*judgeAgent), model.Agent(*agent), *judgeSystem)
+	if err != nil {
+		return err
+	}
 	var failed int
 	for _, tc := range cases {
-		run, err := executeCase(context.Background(), model.Agent(*agent), *skillPath, tc)
+		run, err := executeCaseWithJudge(context.Background(), model.Agent(*agent), *skillPath, tc, j)
 		if err != nil {
 			failed++
 			fmt.Fprintf(os.Stderr, "%s: %v\n", tc.ID, err)
@@ -158,6 +176,9 @@ func runExtract(args []string) error {
 func runAnalyze(args []string) error {
 	fs := flag.NewFlagSet("analyze", flag.ContinueOnError)
 	runPath := fs.String("run", "", "run directory")
+	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
+	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
+	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -168,7 +189,24 @@ func runAnalyze(args []string) error {
 	if err != nil {
 		return err
 	}
-	run.Metrics = metrics.Score(run.Case, run.Events)
+	j, err := buildJudge(*judgeKind, model.Agent(*judgeAgent), run.Agent, *judgeSystem)
+	if err != nil {
+		return err
+	}
+	if j != nil {
+		v, jerr := j.Score(context.Background(), judge.Input{
+			Case:   run.Case,
+			Skill:  run.Skill,
+			Events: run.Events,
+			Final:  finalAssistant(run.Events),
+		})
+		if jerr != nil {
+			v = judge.Verdict{Status: "fallback:error: " + jerr.Error()}
+		}
+		run.Metrics = metrics.ScoreWithVerdict(run.Case, run.Events, v)
+	} else {
+		run.Metrics = metrics.Score(run.Case, run.Events)
+	}
 	if err := store.WriteRun(*runPath, run); err != nil {
 		return err
 	}
@@ -188,6 +226,9 @@ func runResearch(args []string) error {
 	proposerAgent := fs.String("proposer-agent", "", "agent used by the LLM proposer (defaults to --agent)")
 	proposerSystem := fs.String("proposer-system", "", "path to proposer system prompt (overrides embedded default)")
 	historyWindow := fs.Int("history-window", 10, "max prior trials passed to the proposer (0 = all)")
+	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
+	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
+	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -199,13 +240,23 @@ func runResearch(args []string) error {
 	if err != nil {
 		return err
 	}
+	j, err := buildJudge(*judgeKind, model.Agent(*judgeAgent), model.Agent(*agent), *judgeSystem)
+	if err != nil {
+		return err
+	}
+	executor := executeCase
+	if j != nil {
+		executor = func(ctx context.Context, a model.Agent, sp string, tc model.TestCase) (model.NormalizedRun, error) {
+			return executeCaseWithJudge(ctx, a, sp, tc, j)
+		}
+	}
 	cfg := research.Config{
 		Agent:          model.Agent(*agent),
 		SkillPath:      *skillPath,
 		Cases:          cases,
 		MaxTrials:      *maxTrials,
 		MinImprovement: *minImprovement,
-		Executor:       executeCase,
+		Executor:       executor,
 		Proposer:       prop,
 		HistoryWindow:  *historyWindow,
 	}
@@ -245,6 +296,52 @@ func buildProposer(kind string, proposerAgent, runnerAgent model.Agent, systemFi
 	}
 }
 
+func buildJudge(kind string, judgeAgent, runnerAgent model.Agent, systemFile string) (judge.Judge, error) {
+	switch kind {
+	case "", "none":
+		return nil, nil
+	case "llm":
+		ja := judgeAgent
+		if ja == "" {
+			return nil, fmt.Errorf("--judge=llm requires --judge-agent")
+		}
+		_ = runnerAgent // kept for symmetry with buildProposer; judge-agent has no implicit default
+		return judge.LLMJudge{
+			Agent:      ja,
+			Run:        runJudge,
+			SystemFile: systemFile,
+			Fallback:   judge.NoopJudge{},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown --judge %q", kind)
+	}
+}
+
+func runJudge(ctx context.Context, agent model.Agent, prompt string) (string, error) {
+	rr, err := runner.NewCLI().Run(ctx, runner.Spec{
+		Agent:   agent,
+		Prompt:  prompt,
+		WorkDir: ".",
+		Timeout: 2 * time.Minute,
+	})
+	if err != nil {
+		return "", err
+	}
+	if rr.ExitCode != 0 {
+		return "", fmt.Errorf("judge agent %s exited %d: %s", agent, rr.ExitCode, strings.TrimSpace(string(rr.Stderr)))
+	}
+	events, err := adapters.Parse(agent, rr.Stdout)
+	if err != nil {
+		return "", err
+	}
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Type == model.EventAssistant && strings.TrimSpace(events[i].Text) != "" {
+			return events[i].Text, nil
+		}
+	}
+	return "", fmt.Errorf("no assistant message in judge output")
+}
+
 func runProposer(ctx context.Context, agent model.Agent, prompt string) (string, error) {
 	rr, err := runner.NewCLI().Run(ctx, runner.Spec{
 		Agent:   agent,
@@ -271,6 +368,22 @@ func runProposer(ctx context.Context, agent model.Agent, prompt string) (string,
 }
 
 func executeCase(ctx context.Context, agent model.Agent, skillPath string, tc model.TestCase) (model.NormalizedRun, error) {
+	return executeCaseWithJudge(ctx, agent, skillPath, tc, nil)
+}
+
+func finalAssistant(events []model.Event) string {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Type == model.EventAssistant && strings.TrimSpace(events[i].Text) != "" {
+			return events[i].Text
+		}
+	}
+	return ""
+}
+
+// executeCaseWithJudge runs a case and, if a non-nil Judge is supplied, calls
+// it on the produced events to enrich scoring via metrics.ScoreWithVerdict.
+// Pass nil to preserve the legacy heuristic-only path bit-identically.
+func executeCaseWithJudge(ctx context.Context, agent model.Agent, skillPath string, tc model.TestCase, j judge.Judge) (model.NormalizedRun, error) {
 	if agent == "" {
 		return model.NormalizedRun{}, fmt.Errorf("agent is required")
 	}
@@ -323,7 +436,23 @@ func executeCase(ctx context.Context, agent model.Agent, skillPath string, tc mo
 		FinishedAt:  rr.FinishedAt,
 		ExitCode:    rr.ExitCode,
 	}
-	nrun.Metrics = metrics.Score(tc, events)
+	if j != nil {
+		final := finalAssistant(events)
+		// SkillInfo.Content has json:"-" — passed through explicitly here.
+		v, jerr := j.Score(ctx, judge.Input{
+			Case:   tc,
+			Skill:  info,
+			Events: events,
+			Final:  final,
+		})
+		if jerr != nil {
+			// Treat judge errors as fallback-style; don't fail the run.
+			v = judge.Verdict{Status: "fallback:error: " + jerr.Error()}
+		}
+		nrun.Metrics = metrics.ScoreWithVerdict(tc, events, v)
+	} else {
+		nrun.Metrics = metrics.Score(tc, events)
+	}
 	dir, err := store.WriteNewRun(nrun, rr)
 	if err != nil {
 		return model.NormalizedRun{}, err
