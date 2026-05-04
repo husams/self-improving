@@ -1,0 +1,54 @@
+cases:
+  - id: validate-bad-skill
+    prompt: |
+      Use the skill-validator skill to validate the skill located at
+      experiments/skill-validator/fixtures/bad-skill/. Run the automated
+      validation script and then summarize the findings.
+
+      Return sections named Issues, Warnings, and Recommended Fixes.
+      List every violation you find (uppercase name, vague description,
+      first-person usage, TODO placeholder, Windows-style path, deeply
+      nested reference, time-sensitive content) with a concrete fix.
+    expected_skill: skill-validator
+    fixture_path: fixtures/bad-skill/SKILL.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "Issues"
+        - "Warnings"
+        - "Recommended Fixes"
+        - "TODO"
+        - "third person"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer identify the major violations in the bad-skill SKILL.md (naming, description, TODO, Windows path, first person)?"
+      skill_adherence: "Does the answer follow the validator workflow — run the script, then manual review with checklist references?"
+      output_quality: "Are the recommended fixes concrete, specific, and grounded in the validator's criteria?"
+
+  - id: validate-good-skill
+    prompt: |
+      Use the skill-validator skill to validate the skill located at
+      experiments/skill-validator/fixtures/good-skill/. Run the automated
+      validation script and report the result.
+
+      Return sections named Result, Strengths, and Suggested Improvements.
+      Be honest: if the skill passes, say so; only flag genuine issues,
+      not nitpicks.
+    expected_skill: skill-validator
+    fixture_path: fixtures/good-skill/SKILL.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "Result"
+        - "Strengths"
+        - "Suggested Improvements"
+        - "csv-cleaner"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer correctly assess the good-skill as largely compliant?"
+      skill_adherence: "Does the answer use the validator script and reference its criteria?"
+      output_quality: "Does the answer distinguish real issues from nitpicks and stay grounded in the SKILL.md content?"

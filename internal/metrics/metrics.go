@@ -119,10 +119,8 @@ func ScoreWithVerdictAndQuality(tc model.TestCase, events []model.Event, v judge
 	}
 	if skillUsed {
 		m.SkillUse = 100
-	} else if tc.ExpectedSkill == "" {
-		m.SkillUse = 70
 	} else {
-		m.SkillUse = 0
+		m.SkillUse = 70
 	}
 	m.SkillAdherence = m.SkillUse
 	if v.SkillAdherence != nil {

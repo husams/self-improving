@@ -1,11 +1,13 @@
 package research
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -27,6 +29,15 @@ type Config struct {
 	Executor       Executor
 	Proposer       Proposer
 	HistoryWindow  int
+	// ForceDirty bypasses the git-clean precondition on the skill dir.
+	ForceDirty bool
+	// Stdin/Stdout drive the end-of-run deploy prompt. Defaults to
+	// os.Stdin / os.Stdout when nil.
+	Stdin  io.Reader
+	Stdout io.Writer
+	// SkipDeployPrompt suppresses the interactive deploy gate (used by tests
+	// that want to drive Deploy directly).
+	SkipDeployPrompt bool
 }
 
 type Proposal struct {
@@ -36,9 +47,11 @@ type Proposal struct {
 }
 
 type Result struct {
-	ResearchDir string
-	Proposals   []Proposal
-	Trials      []Trial
+	ResearchDir  string
+	BaselineDir  string
+	Proposals    []Proposal
+	Trials       []Trial
+	DeployChoice string
 }
 
 type Trial struct {
@@ -53,6 +66,8 @@ type Trial struct {
 	Improvement    float64   `json:"improvement"`
 	Decision       string    `json:"decision"`
 	ProposalPath   string    `json:"proposal_path,omitempty"`
+	SnapshotPath   string    `json:"snapshot_path,omitempty"`
+	ChangedFiles   []string  `json:"changed_files,omitempty"`
 	Notes          []string  `json:"notes,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -79,55 +94,97 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 	if cfg.Proposer == nil {
 		cfg.Proposer = DeterministicProposer{}
 	}
+	if cfg.Stdin == nil {
+		cfg.Stdin = os.Stdin
+	}
+	if cfg.Stdout == nil {
+		cfg.Stdout = os.Stdout
+	}
 	info, err := skills.Load(cfg.SkillPath)
 	if err != nil {
 		return Result{}, err
+	}
+	skillRoot := info.Path
+	if !cfg.ForceDirty {
+		if dirty, why, err := skillDirIsDirty(skillRoot); err != nil {
+			// Not-a-repo or git-not-installed: treat as clean and continue.
+			_ = err
+		} else if dirty {
+			return Result{}, fmt.Errorf("skill dir has uncommitted changes:\n%s\nuse --force-dirty to override", why)
+		}
 	}
 	researchID := model.NewRunID(cfg.Agent, "research")
 	researchDir := filepath.Join(".skillbench", "research", researchID)
 	if err := os.MkdirAll(researchDir, 0o700); err != nil {
 		return Result{}, err
 	}
+	baselineDir := filepath.Join(researchDir, "baseline-skill")
+	if err := copyTree(skillRoot, baselineDir); err != nil {
+		return Result{}, fmt.Errorf("backup baseline: %w", err)
+	}
+	trialsDir := filepath.Join(researchDir, "trials")
+	if err := os.MkdirAll(trialsDir, 0o700); err != nil {
+		return Result{}, err
+	}
+
 	var proposals []Proposal
 	var trials []Trial
+	// lastGoodSnapshot is the path to copy from when we need to roll back the
+	// live skill dir. It starts as the baseline backup and advances to the
+	// snapshot of the most recently accepted trial.
+	lastGoodSnapshot := baselineDir
+
 	for i := 0; i < cfg.MaxTrials; i++ {
 		trialID := fmt.Sprintf("trial-%03d", i+1)
 		tc := cfg.Cases[i%len(cfg.Cases)]
-		baselinePath, cleanupBaseline, err := stageSkillCopy(cfg.SkillPath, info.Content)
+
+		// Re-read SKILL.md from the live (possibly mutated) skill dir so the
+		// proposer sees the current cumulative state.
+		liveInfo, err := skills.Load(skillRoot)
 		if err != nil {
-			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 		}
-		baseline, err := cfg.Executor(ctx, cfg.Agent, baselinePath, tc)
-		cleanupBaseline()
+		baseline, err := cfg.Executor(ctx, cfg.Agent, skillRoot, tc)
 		if err != nil {
-			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 		}
 		hist := trials
 		if cfg.HistoryWindow > 0 && len(trials) > cfg.HistoryWindow {
 			hist = trials[len(trials)-cfg.HistoryWindow:]
 		}
+		liveFiles, err := readSkillFiles(skillRoot)
+		if err != nil {
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
+		}
 		cand, err := cfg.Proposer.Propose(ctx, ProposerInput{
-			SkillContent: info.Content,
+			SkillContent: liveInfo.Content,
+			SkillFiles:   liveFiles,
 			Case:         tc,
 			Baseline:     baseline,
 			History:      hist,
 			TrialIndex:   i,
 		})
 		if err != nil {
-			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 		}
-		candidateContent := cand.Content
-		candidatePath, cleanupCandidate, err := stageSkillCopy(cfg.SkillPath, candidateContent)
+		// Apply candidate files in place to the live skill dir.
+		changed, err := applyFiles(skillRoot, cand.Files)
 		if err != nil {
-			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 		}
-		candidate, err := cfg.Executor(ctx, cfg.Agent, candidatePath, tc)
-		cleanupCandidate()
+		candidate, err := cfg.Executor(ctx, cfg.Agent, skillRoot, tc)
 		if err != nil {
-			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 		}
 		improvement := candidate.Metrics.Overall - baseline.Metrics.Overall
 		decision, notes := decide(baseline, candidate, cfg.MinImprovement)
+
+		// Snapshot current state regardless of decision.
+		snapshotPath := filepath.Join(trialsDir, trialID, "skill")
+		if err := copyTree(skillRoot, snapshotPath); err != nil {
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
+		}
+
 		trial := Trial{
 			TrialID:        trialID,
 			CaseID:         tc.ID,
@@ -139,48 +196,245 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 			CandidateScore: candidate.Metrics.Overall,
 			Improvement:    improvement,
 			Decision:       decision,
+			SnapshotPath:   snapshotPath,
+			ChangedFiles:   changed,
 			Notes:          append(notes, cand.Notes...),
 			CreatedAt:      time.Now(),
 		}
 		if decision == "propose" {
-			diff := appendDiff(info.SKILLPath, info.Content, candidateContent)
+			diff := summaryDiff(skillRoot, lastGoodSnapshot, cand.Files)
 			path, err := store.WriteProposal(baseline.Skill.Name, trialID, diff, baseline.Metrics, candidate.Metrics)
 			if err != nil {
-				return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+				return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 			}
 			trial.ProposalPath = path
 			proposals = append(proposals, Proposal{Path: path, TrialID: trialID, Improvement: improvement})
+			// Advance the rollback pointer: future discards revert to this snapshot.
+			lastGoodSnapshot = snapshotPath
+		} else {
+			// Roll back the live skill dir to the last-good snapshot.
+			if err := replaceTree(lastGoodSnapshot, skillRoot); err != nil {
+				return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, fmt.Errorf("rollback: %w", err)
+			}
 		}
 		if err := appendTrial(researchDir, trial); err != nil {
-			return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 		}
 		trials = append(trials, trial)
 	}
 	if err := writeReport(researchDir, cfg, proposals); err != nil {
-		return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, err
+		return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
 	}
-	return Result{ResearchDir: researchDir, Proposals: proposals, Trials: trials}, nil
+
+	choice := ""
+	if !cfg.SkipDeployPrompt {
+		c, err := promptDeploy(cfg.Stdin, cfg.Stdout, trials)
+		if err != nil {
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
+		}
+		if err := Deploy(researchDir, skillRoot, c); err != nil {
+			return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials}, err
+		}
+		choice = c
+	}
+	return Result{ResearchDir: researchDir, BaselineDir: baselineDir, Proposals: proposals, Trials: trials, DeployChoice: choice}, nil
 }
 
-func stageSkillCopy(skillPath, content string) (string, func(), error) {
-	info, err := skills.Load(skillPath)
+// Deploy atomically replaces skillRoot with the contents of the chosen
+// snapshot. choice may be "none" (leave dir at its current state),
+// "baseline" (restore the original), or "trial-NNN" (deploy that trial's
+// snapshot).
+func Deploy(researchDir, skillRoot, choice string) error {
+	choice = strings.TrimSpace(choice)
+	switch {
+	case choice == "" || choice == "none":
+		return nil
+	case choice == "baseline":
+		src := filepath.Join(researchDir, "baseline-skill")
+		return atomicReplace(src, skillRoot)
+	case strings.HasPrefix(choice, "trial-"):
+		src := filepath.Join(researchDir, "trials", choice, "skill")
+		if _, err := os.Stat(src); err != nil {
+			return fmt.Errorf("snapshot %q not found: %w", choice, err)
+		}
+		return atomicReplace(src, skillRoot)
+	default:
+		return fmt.Errorf("unknown deploy choice %q (want none|baseline|trial-NNN)", choice)
+	}
+}
+
+func promptDeploy(in io.Reader, out io.Writer, trials []Trial) (string, error) {
+	fmt.Fprintln(out, "")
+	fmt.Fprintln(out, "Research complete. Trial summary (ranked by candidate score):")
+	ranked := make([]Trial, len(trials))
+	copy(ranked, trials)
+	sort.SliceStable(ranked, func(i, j int) bool {
+		return ranked[i].CandidateScore > ranked[j].CandidateScore
+	})
+	fmt.Fprintln(out, "trial\tdecision\tscore\timprovement\tstrategy")
+	for _, t := range ranked {
+		fmt.Fprintf(out, "%s\t%s\t%.1f\t%+.1f\t%s\n", t.TrialID, t.Decision, t.CandidateScore, t.Improvement, t.Strategy)
+	}
+	fmt.Fprintln(out, "")
+	fmt.Fprint(out, "Deploy which? (none|baseline|trial-NNN) [none]: ")
+	sc := bufio.NewScanner(in)
+	if !sc.Scan() {
+		return "none", nil
+	}
+	choice := strings.TrimSpace(sc.Text())
+	if choice == "" {
+		choice = "none"
+	}
+	return choice, nil
+}
+
+// readSkillFiles reads the full skill tree as a relpath→contents map.
+// Skips non-regular files (symlinks, devices). Caps individual file size at
+// 256 KiB to keep proposer prompts bounded.
+func readSkillFiles(root string) (map[string]string, error) {
+	const maxFile = 256 * 1024
+	out := make(map[string]string)
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode().Type() != 0 {
+			return nil
+		}
+		if info.Size() > maxFile {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		out[filepath.ToSlash(rel)] = string(b)
+		return nil
+	})
 	if err != nil {
-		return "", func() {}, err
+		return nil, err
 	}
-	tmp, err := os.MkdirTemp("", "skillbench-candidate-*")
+	return out, nil
+}
+
+// applyFiles writes each path → contents into root, creating parent dirs as
+// needed. Returns the list of relative paths actually changed (created or
+// modified). Refuses paths that escape root.
+func applyFiles(root string, files map[string]string) ([]string, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	rootAbs, err := filepath.Abs(root)
 	if err != nil {
-		return "", func() {}, err
+		return nil, err
 	}
-	cleanup := func() { _ = os.RemoveAll(tmp) }
-	if err := copyTree(info.Path, tmp); err != nil {
-		cleanup()
-		return "", func() {}, err
+	changed := make([]string, 0, len(files))
+	for rel, content := range files {
+		clean := filepath.Clean(filepath.FromSlash(rel))
+		if clean == "." || strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
+			return nil, fmt.Errorf("invalid candidate path %q", rel)
+		}
+		dst := filepath.Join(rootAbs, clean)
+		dstAbs, err := filepath.Abs(dst)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(dstAbs+string(filepath.Separator), rootAbs+string(filepath.Separator)) && dstAbs != rootAbs {
+			return nil, fmt.Errorf("candidate path %q escapes skill dir", rel)
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+			return nil, err
+		}
+		// Preserve existing file mode if any (so executable scripts stay +x).
+		mode := os.FileMode(0o600)
+		if fi, err := os.Stat(dst); err == nil {
+			mode = fi.Mode().Perm()
+		}
+		// Skip writes when content is already identical (avoids spurious
+		// "changed" entries).
+		if existing, err := os.ReadFile(dst); err == nil && string(existing) == content {
+			continue
+		}
+		if err := os.WriteFile(dst, []byte(content), mode); err != nil {
+			return nil, err
+		}
+		changed = append(changed, filepath.ToSlash(clean))
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "SKILL.md"), []byte(content), 0o600); err != nil {
-		cleanup()
-		return "", func() {}, err
+	sort.Strings(changed)
+	return changed, nil
+}
+
+// replaceTree wipes dst and copies src over it. Used for rollbacks.
+func replaceTree(src, dst string) error {
+	if err := os.RemoveAll(dst); err != nil {
+		return err
 	}
-	return tmp, cleanup, nil
+	return copyTree(src, dst)
+}
+
+// atomicReplace stages src at dst.tmp and renames over dst. The rename is
+// atomic on the same filesystem; the prior dst is removed first since
+// os.Rename does not replace a non-empty directory.
+func atomicReplace(src, dst string) error {
+	parent := filepath.Dir(dst)
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return err
+	}
+	tmp, err := os.MkdirTemp(parent, ".skillbench-deploy-*")
+	if err != nil {
+		return err
+	}
+	staged := filepath.Join(tmp, "stage")
+	if err := copyTree(src, staged); err != nil {
+		os.RemoveAll(tmp)
+		return err
+	}
+	// Move existing dst aside, swap in staged, then remove the old.
+	backup := filepath.Join(tmp, "backup")
+	if _, err := os.Stat(dst); err == nil {
+		if err := os.Rename(dst, backup); err != nil {
+			os.RemoveAll(tmp)
+			return err
+		}
+	}
+	if err := os.Rename(staged, dst); err != nil {
+		// best effort: try to restore the backup
+		if _, berr := os.Stat(backup); berr == nil {
+			_ = os.Rename(backup, dst)
+		}
+		os.RemoveAll(tmp)
+		return err
+	}
+	os.RemoveAll(tmp)
+	return nil
+}
+
+// skillDirIsDirty reports whether `git status --porcelain <root>` lists any
+// changes. Returns (false, "", err) when git is unavailable or root is not in
+// a repo — callers treat that as "clean enough to proceed".
+func skillDirIsDirty(root string) (bool, string, error) {
+	cmd := exec.Command("git", "status", "--porcelain", "--", root)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return false, "", err
+	}
+	s := strings.TrimSpace(string(out))
+	if s == "" {
+		return false, "", nil
+	}
+	return true, s, nil
 }
 
 func chooseStrategy(trial int, tc model.TestCase, baseline model.NormalizedRun) strategy {
@@ -345,23 +599,68 @@ func passedAssertions(m model.Metrics) int {
 	return n
 }
 
-func appendDiff(path, before, after string) string {
-	if strings.HasPrefix(after, before) {
-		added := strings.TrimPrefix(after, before)
-		return fmt.Sprintf("--- %s\n+++ %s.candidate\n@@\n%s", path, path, prefixLines("+", strings.TrimLeft(added, "\n")))
-	}
-	return fmt.Sprintf("--- %s\n+++ %s.candidate\n@@\n-%s\n+%s\n", path, path, strings.TrimSpace(before), strings.TrimSpace(after))
-}
-
-func prefixLines(prefix, s string) string {
-	if s == "" {
+// summaryDiff emits a concatenated unified diff covering each path in `files`,
+// comparing it against the same path under `lastGoodRoot` (treating missing
+// files as empty). Multi-file proposals get one combined patch.
+func summaryDiff(skillRoot, lastGoodRoot string, files map[string]string) string {
+	if len(files) == 0 {
 		return ""
 	}
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		lines[i] = prefix + line
+	keys := make([]string, 0, len(files))
+	for k := range files {
+		keys = append(keys, k)
 	}
-	return strings.Join(lines, "\n") + "\n"
+	sort.Strings(keys)
+	var out strings.Builder
+	for _, rel := range keys {
+		after := files[rel]
+		var before string
+		if b, err := os.ReadFile(filepath.Join(lastGoodRoot, filepath.FromSlash(rel))); err == nil {
+			before = string(b)
+		}
+		if before == after {
+			continue
+		}
+		labelBefore := rel
+		labelAfter := rel + ".candidate"
+		if d, err := unifiedDiff(labelBefore, labelAfter, before, after); err == nil {
+			out.WriteString(d)
+		} else {
+			fmt.Fprintf(&out, "--- %s\n+++ %s\n@@\n-%s\n+%s\n", labelBefore, labelAfter, strings.TrimSpace(before), strings.TrimSpace(after))
+		}
+	}
+	return out.String()
+}
+
+func unifiedDiff(labelBefore, labelAfter, before, after string) (string, error) {
+	dir, err := os.MkdirTemp("", "skillbench-diff-*")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(dir)
+	bp := filepath.Join(dir, "before")
+	ap := filepath.Join(dir, "after")
+	if err := os.WriteFile(bp, []byte(before), 0o600); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(ap, []byte(after), 0o600); err != nil {
+		return "", err
+	}
+	cmd := exec.Command("diff", "-u",
+		"--label", labelBefore,
+		"--label", labelAfter,
+		bp, ap)
+	out, err := cmd.Output()
+	// `diff` exits 1 when files differ — that is success for our purposes.
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); !ok || ee.ExitCode() != 1 {
+			return "", err
+		}
+	}
+	if len(out) == 0 {
+		return fmt.Sprintf("--- %s\n+++ %s\n", labelBefore, labelAfter), nil
+	}
+	return string(out), nil
 }
 
 func appendTrial(dir string, trial Trial) error {

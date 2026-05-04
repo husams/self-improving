@@ -37,10 +37,11 @@ type Input struct {
 
 // Result is the outcome of one Check.
 type Result struct {
-	Name   string  // check kind, e.g. "script", "regex", "similarity"
-	Score  float64 // 0-100
-	Passed bool
-	Note   string // short human-readable summary; surfaced via metrics.Notes
+	Name    string  // check kind, e.g. "script", "regex", "similarity"
+	Score   float64 // 0-100
+	Passed  bool
+	Skipped bool   // true → excluded from the mean (e.g. missing creds)
+	Note    string // short human-readable summary; surfaced via metrics.Notes
 }
 
 // QualitySignal is the aggregate produced by Runner.Run. The metrics layer
@@ -92,24 +93,35 @@ func (r *Runner) Run(ctx context.Context, in Input) *QualitySignal {
 	}
 	sig := &QualitySignal{}
 	var sum float64
+	var counted int
 	for _, c := range r.Checks {
 		res := c.Run(ctx, in)
 		if res.Name == "" {
 			res.Name = c.Name()
 		}
 		sig.Results = append(sig.Results, res)
-		sum += res.Score
+		if !res.Skipped {
+			sum += res.Score
+			counted++
+		}
 		if note := strings.TrimSpace(res.Note); note != "" {
 			sig.Notes = append(sig.Notes, fmt.Sprintf("%s: %s", res.Name, note))
 		} else {
 			sig.Notes = append(sig.Notes, fmt.Sprintf("%s: %s", res.Name, passedTag(res)))
 		}
 	}
-	sig.Score = sum / float64(len(r.Checks))
+	if counted == 0 {
+		// All checks skipped: no signal.
+		return nil
+	}
+	sig.Score = sum / float64(counted)
 	return sig
 }
 
 func passedTag(r Result) string {
+	if r.Skipped {
+		return "skipped"
+	}
 	if r.Passed {
 		return "pass"
 	}

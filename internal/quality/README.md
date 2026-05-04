@@ -38,8 +38,13 @@ typos surface fast.
   unparseable regex) → score 0, `passed=false`, note appended; **the run
   does not crash**. This mirrors the judge fallback discipline at
   `internal/judge/llm.go:58-66`.
-- `deterministic_quality = mean(scores)` over all checks. Empty
-  `quality_checks` → no signal (caller passes `nil`).
+- `script` checks may **skip** by exiting with code `2`. A skipped
+  result has `Skipped=true`, is **excluded from the mean**, and is
+  surfaced in notes as `script: skipped: <stdout>`. Use this for
+  preconditions you don't control (e.g. missing live-API creds) so a
+  missing env var doesn't silently inflate or deflate the score.
+- `deterministic_quality = mean(scores over non-skipped checks)`. Empty
+  `quality_checks` OR all checks skipped → no signal (caller passes `nil`).
 
 ## Resolution order for OutputQuality
 

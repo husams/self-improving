@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -114,7 +115,7 @@ func usage() {
 
 Commands:
   test <codex|claude|copilot> -p <prompt> --skill <path> --case <case.yaml>
-  suite --agent <agent> --skill <path> --cases <cases.yaml>
+  suite --agent <agent> --skill <path> --cases <cases.yaml> [--iterations N]
   extract --agent <agent> --latest | --session <path-or-id>
   analyze --run .skillbench/runs/<run-id>
   research --agent <agent> --skill <path> --cases <cases.yaml> --max-trials 20 --min-improvement 5
@@ -178,11 +179,15 @@ func runSuite(args []string) error {
 	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
 	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
 	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
+	iterations := fs.Int("iterations", 1, "number of times to run each case (>=1)")
 	qOpts, qFinalize := registerQualityFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	qFinalize()
+	if *iterations < 1 {
+		return fmt.Errorf("--iterations must be >= 1")
+	}
 	cases, err := loadCases(*casesPath)
 	if err != nil {
 		return err
@@ -192,25 +197,74 @@ func runSuite(args []string) error {
 		return err
 	}
 	var failed int
+	scores := make(map[string][]float64, len(cases))
+	quals := make(map[string][]float64, len(cases))
 	for _, tc := range cases {
-		qr, qerr := buildQualityRunner(tc, qOpts, model.Agent(*agent))
-		if qerr != nil {
-			failed++
-			fmt.Fprintf(os.Stderr, "%s: %v\n", tc.ID, qerr)
-			continue
+		for i := 1; i <= *iterations; i++ {
+			qr, qerr := buildQualityRunner(tc, qOpts, model.Agent(*agent))
+			if qerr != nil {
+				failed++
+				fmt.Fprintf(os.Stderr, "%s[%d]: %v\n", tc.ID, i, qerr)
+				continue
+			}
+			run, err := executeCaseWithJudgeAndQuality(context.Background(), model.Agent(*agent), *skillPath, tc, j, qr)
+			if err != nil {
+				failed++
+				fmt.Fprintf(os.Stderr, "%s[%d]: %v\n", tc.ID, i, err)
+				continue
+			}
+			fmt.Printf("%s[%d]\t%s\t%.1f\n", tc.ID, i, run.RunID, run.Metrics.Overall)
+			scores[tc.ID] = append(scores[tc.ID], run.Metrics.Overall)
+			quals[tc.ID] = append(quals[tc.ID], run.Metrics.OutputQuality)
 		}
-		run, err := executeCaseWithJudgeAndQuality(context.Background(), model.Agent(*agent), *skillPath, tc, j, qr)
-		if err != nil {
-			failed++
-			fmt.Fprintf(os.Stderr, "%s: %v\n", tc.ID, err)
-			continue
+	}
+	if *iterations > 1 {
+		fmt.Println("---")
+		fmt.Println("case\tn\tOverall mean\tstdev\tmin\tmax\tOutputQuality mean\tstdev")
+		for _, tc := range cases {
+			s := scores[tc.ID]
+			if len(s) == 0 {
+				fmt.Printf("%s\t0\t-\t-\t-\t-\t-\t-\n", tc.ID)
+				continue
+			}
+			om, osd, omn, omx := summarize(s)
+			q := quals[tc.ID]
+			qm, qsd, _, _ := summarize(q)
+			fmt.Printf("%s\t%d\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n",
+				tc.ID, len(s), om, osd, omn, omx, qm, qsd)
 		}
-		fmt.Printf("%s\t%s\t%.1f\n", tc.ID, run.RunID, run.Metrics.Overall)
 	}
 	if failed > 0 {
-		return fmt.Errorf("%d case(s) failed", failed)
+		return fmt.Errorf("%d case-iteration(s) failed", failed)
 	}
 	return nil
+}
+
+func summarize(xs []float64) (mean, stdev, min, max float64) {
+	if len(xs) == 0 {
+		return
+	}
+	min, max = xs[0], xs[0]
+	var sum float64
+	for _, x := range xs {
+		sum += x
+		if x < min {
+			min = x
+		}
+		if x > max {
+			max = x
+		}
+	}
+	mean = sum / float64(len(xs))
+	if len(xs) > 1 {
+		var sq float64
+		for _, x := range xs {
+			d := x - mean
+			sq += d * d
+		}
+		stdev = math.Sqrt(sq / float64(len(xs)-1))
+	}
+	return
 }
 
 func runExtract(args []string) error {
@@ -314,6 +368,7 @@ func runResearch(args []string) error {
 	proposerAgent := fs.String("proposer-agent", "", "agent used by the LLM proposer (defaults to --agent)")
 	proposerSystem := fs.String("proposer-system", "", "path to proposer system prompt (overrides embedded default)")
 	historyWindow := fs.Int("history-window", 10, "max prior trials passed to the proposer (0 = all)")
+	forceDirty := fs.Bool("force-dirty", false, "proceed even if the skill dir has uncommitted git changes")
 	judgeKind := fs.String("judge", "none", "judge kind: none|llm")
 	judgeAgent := fs.String("judge-agent", "", "agent used by the LLM judge")
 	judgeSystem := fs.String("judge-system", "", "path to judge system prompt (overrides embedded default)")
@@ -350,6 +405,7 @@ func runResearch(args []string) error {
 		Executor:       executor,
 		Proposer:       prop,
 		HistoryWindow:  *historyWindow,
+		ForceDirty:     *forceDirty,
 	}
 	result, err := research.Run(context.Background(), cfg)
 	if err != nil {

@@ -121,6 +121,48 @@ func TestRunnerRunMeans(t *testing.T) {
 	}
 }
 
+func TestScriptCheckExitTwoIsSkipped(t *testing.T) {
+	res := ScriptCheck{Path: "echo no-creds; exit 2", TimeoutSeconds: 5}.Run(context.Background(), Input{})
+	if !res.Skipped {
+		t.Fatalf("expected Skipped=true, got %+v", res)
+	}
+	if res.Passed {
+		t.Fatalf("skipped must not be passed, got %+v", res)
+	}
+}
+
+func TestRunnerSkippedExcludedFromMean(t *testing.T) {
+	tc := model.TestCase{QualityChecks: []model.QualityCheckSpec{
+		{Script: "true"},     // 100
+		{Script: "exit 2"},    // skipped
+	}}
+	r, err := Build(tc, BuildOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig := r.Run(context.Background(), Input{})
+	if sig == nil {
+		t.Fatal("nil signal")
+	}
+	if sig.Score != 100 {
+		t.Fatalf("expected mean=100 (skip excluded), got %.2f", sig.Score)
+	}
+}
+
+func TestRunnerAllSkippedReturnsNil(t *testing.T) {
+	tc := model.TestCase{QualityChecks: []model.QualityCheckSpec{
+		{Script: "exit 2"},
+		{Script: "exit 2"},
+	}}
+	r, err := Build(tc, BuildOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sig := r.Run(context.Background(), Input{}); sig != nil {
+		t.Fatalf("expected nil when all skipped, got %+v", sig)
+	}
+}
+
 func TestRunnerRunNilOnEmpty(t *testing.T) {
 	var r *Runner
 	if got := r.Run(context.Background(), Input{}); got != nil {

@@ -27,13 +27,22 @@ func (s ScriptCheck) Run(ctx context.Context, _ Input) Result {
 	defer cancel()
 	cmd := exec.CommandContext(cctx, "sh", "-c", s.Path)
 	out, err := cmd.CombinedOutput()
+	trimmed := strings.TrimSpace(string(out))
+	if len(trimmed) > 200 {
+		trimmed = trimmed[:200]
+	}
 	if err != nil {
-		note := fmt.Sprintf("%s exited with error: %v", s.Path, err)
-		if len(out) > 0 {
-			trimmed := strings.TrimSpace(string(out))
-			if len(trimmed) > 200 {
-				trimmed = trimmed[:200]
+		// Exit code 2 is the skip sentinel (missing creds, env not configured).
+		// Skipped results are excluded from the mean by Runner.Run.
+		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 2 {
+			note := "skipped"
+			if trimmed != "" {
+				note = "skipped: " + trimmed
 			}
+			return Result{Name: "script", Score: 0, Passed: false, Skipped: true, Note: note}
+		}
+		note := fmt.Sprintf("%s exited with error: %v", s.Path, err)
+		if trimmed != "" {
 			note += "; output: " + trimmed
 		}
 		return Result{Name: "script", Score: 0, Passed: false, Note: note}

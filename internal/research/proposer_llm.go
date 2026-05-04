@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"skillbench/internal/model"
@@ -81,9 +82,30 @@ func (p LLMProposer) buildPrompt(in ProposerInput) (string, error) {
 	}
 	var b strings.Builder
 	b.WriteString(system)
-	b.WriteString("\n\n## Current SKILL.md\n\n```markdown\n")
-	b.WriteString(in.SkillContent)
-	b.WriteString("\n```\n\n## Case being trialed\n\n```json\n")
+	b.WriteString("\n\n## Current skill files\n\n")
+	// Emit SKILL.md first, then any other files (sorted) so the prompt is
+	// deterministic. Each file is fenced with its relative path as a header.
+	paths := make([]string, 0, len(in.SkillFiles))
+	for p := range in.SkillFiles {
+		if p == "SKILL.md" {
+			continue
+		}
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	if md, ok := in.SkillFiles["SKILL.md"]; ok {
+		b.WriteString("### SKILL.md\n\n```markdown\n")
+		b.WriteString(md)
+		b.WriteString("\n```\n\n")
+	} else if in.SkillContent != "" {
+		b.WriteString("### SKILL.md\n\n```markdown\n")
+		b.WriteString(in.SkillContent)
+		b.WriteString("\n```\n\n")
+	}
+	for _, p := range paths {
+		fmt.Fprintf(&b, "### %s\n\n```\n%s\n```\n\n", p, in.SkillFiles[p])
+	}
+	b.WriteString("## Case being trialed\n\n```json\n")
 	b.Write(caseJSON)
 	b.WriteString("\n```\n\n## Baseline metrics\n\n```json\n")
 	b.Write(metricsJSON)
@@ -115,19 +137,24 @@ func parseProposerJSON(text string) (Candidate, error) {
 		}
 	}
 	var raw struct {
-		Strategy   string `json:"strategy"`
-		Hypothesis string `json:"hypothesis"`
-		SkillMD    string `json:"skill_md"`
+		Strategy   string            `json:"strategy"`
+		Hypothesis string            `json:"hypothesis"`
+		Files      map[string]string `json:"files"`
+		SkillMD    string            `json:"skill_md"` // legacy compat
 	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	if err := dec.Decode(&raw); err != nil {
 		return Candidate{}, fmt.Errorf("decode: %w", err)
 	}
-	if raw.SkillMD == "" {
-		return Candidate{}, fmt.Errorf("skill_md is empty")
+	files := raw.Files
+	if len(files) == 0 && raw.SkillMD != "" {
+		files = map[string]string{"SKILL.md": raw.SkillMD}
+	}
+	if len(files) == 0 {
+		return Candidate{}, fmt.Errorf("files is empty")
 	}
 	return Candidate{
-		Content:    raw.SkillMD,
+		Files:      files,
 		Strategy:   strings.TrimSpace(raw.Strategy),
 		Hypothesis: strings.TrimSpace(raw.Hypothesis),
 	}, nil

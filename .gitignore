@@ -1,0 +1,6 @@
+.skillbench/runs/
+.skillbench/research/
+.skillbench/proposals/
+.claude/
+self-imprving /
+__pycache__/

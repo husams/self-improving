@@ -22,8 +22,11 @@ func TestDeterministicProposerReturnsCandidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cand.Content == "" {
-		t.Fatal("empty content")
+	if len(cand.Files) == 0 {
+		t.Fatal("empty files")
+	}
+	if cand.Files["SKILL.md"] == "" {
+		t.Fatal("empty SKILL.md content")
 	}
 	if cand.Strategy == "" {
 		t.Fatal("empty strategy")
@@ -32,7 +35,7 @@ func TestDeterministicProposerReturnsCandidate(t *testing.T) {
 
 func TestLLMProposerParsesValidJSON(t *testing.T) {
 	run := func(_ context.Context, _ model.Agent, _ string) (string, error) {
-		return `{"strategy":"trigger-broaden","hypothesis":"broaden trigger","skill_md":"---\nname: demo\n---\nbody"}`, nil
+		return `{"strategy":"trigger-broaden","hypothesis":"broaden trigger","files":{"SKILL.md":"---\nname: demo\n---\nbody","scripts/foo.py":"print('hi')"}}`, nil
 	}
 	p := LLMProposer{Agent: model.AgentClaude, Run: run, Fallback: DeterministicProposer{}}
 	cand, err := p.Propose(context.Background(), ProposerInput{
@@ -46,14 +49,17 @@ func TestLLMProposerParsesValidJSON(t *testing.T) {
 	if cand.Strategy != "trigger-broaden" {
 		t.Fatalf("strategy=%q", cand.Strategy)
 	}
-	if !strings.Contains(cand.Content, "body") {
-		t.Fatalf("content=%q", cand.Content)
+	if !strings.Contains(cand.Files["SKILL.md"], "body") {
+		t.Fatalf("SKILL.md=%q", cand.Files["SKILL.md"])
+	}
+	if cand.Files["scripts/foo.py"] != "print('hi')" {
+		t.Fatalf("scripts/foo.py=%q", cand.Files["scripts/foo.py"])
 	}
 }
 
 func TestLLMProposerStripsMarkdownFences(t *testing.T) {
 	run := func(_ context.Context, _ model.Agent, _ string) (string, error) {
-		return "```json\n{\"strategy\":\"x\",\"hypothesis\":\"y\",\"skill_md\":\"z\"}\n```", nil
+		return "```json\n{\"strategy\":\"x\",\"hypothesis\":\"y\",\"files\":{\"SKILL.md\":\"z\"}}\n```", nil
 	}
 	p := LLMProposer{Agent: model.AgentClaude, Run: run, Fallback: DeterministicProposer{}}
 	cand, err := p.Propose(context.Background(), ProposerInput{
@@ -67,8 +73,26 @@ func TestLLMProposerStripsMarkdownFences(t *testing.T) {
 	if cand.Strategy != "x" {
 		t.Fatalf("strategy=%q", cand.Strategy)
 	}
-	if cand.Content != "z" {
-		t.Fatalf("content=%q", cand.Content)
+	if cand.Files["SKILL.md"] != "z" {
+		t.Fatalf("SKILL.md=%q", cand.Files["SKILL.md"])
+	}
+}
+
+func TestLLMProposerAcceptsLegacySkillMDField(t *testing.T) {
+	run := func(_ context.Context, _ model.Agent, _ string) (string, error) {
+		return `{"strategy":"x","hypothesis":"y","skill_md":"legacy body"}`, nil
+	}
+	p := LLMProposer{Agent: model.AgentClaude, Run: run, Fallback: DeterministicProposer{}}
+	cand, err := p.Propose(context.Background(), ProposerInput{
+		SkillContent: "---\n",
+		Case:         model.TestCase{ID: "x"},
+		Baseline:     model.NormalizedRun{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cand.Files["SKILL.md"] != "legacy body" {
+		t.Fatalf("SKILL.md=%q", cand.Files["SKILL.md"])
 	}
 }
 
@@ -88,8 +112,8 @@ func TestLLMProposerFallsBackOnRunError(t *testing.T) {
 	if !strings.HasPrefix(cand.Strategy, "llm-fallback:") {
 		t.Fatalf("strategy=%q want llm-fallback prefix", cand.Strategy)
 	}
-	if cand.Content == "" {
-		t.Fatal("empty content from fallback")
+	if len(cand.Files) == 0 {
+		t.Fatal("empty files from fallback")
 	}
 	if len(cand.Notes) == 0 || !strings.Contains(cand.Notes[0], "runner unavailable") {
 		t.Fatalf("notes=%v", cand.Notes)
@@ -114,9 +138,9 @@ func TestLLMProposerFallsBackOnGarbageJSON(t *testing.T) {
 	}
 }
 
-func TestLLMProposerFallsBackOnEmptySkillMD(t *testing.T) {
+func TestLLMProposerFallsBackOnEmptyFiles(t *testing.T) {
 	run := func(_ context.Context, _ model.Agent, _ string) (string, error) {
-		return `{"strategy":"x","hypothesis":"y","skill_md":""}`, nil
+		return `{"strategy":"x","hypothesis":"y","files":{}}`, nil
 	}
 	p := LLMProposer{Agent: model.AgentClaude, Run: run, Fallback: DeterministicProposer{}}
 	cand, err := p.Propose(context.Background(), ProposerInput{
@@ -135,14 +159,14 @@ func TestLLMProposerFallsBackOnEmptySkillMD(t *testing.T) {
 func TestParseProposerJSONExtractsJSONFromProse(t *testing.T) {
 	text := `Here you go:
 
-{"strategy":"a","hypothesis":"b","skill_md":"c"}
+{"strategy":"a","hypothesis":"b","files":{"SKILL.md":"c"}}
 
 Hope that helps.`
 	cand, err := parseProposerJSON(text)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cand.Strategy != "a" || cand.Content != "c" {
+	if cand.Strategy != "a" || cand.Files["SKILL.md"] != "c" {
 		t.Fatalf("got %#v", cand)
 	}
 }

@@ -1,0 +1,138 @@
+cases:
+  - id: auth-flow-light
+    prompt: |
+      Use the bookstack-drawio skill to build the diagram described in the
+      attached spec. Do NOT call any BookStack API — write the PNG locally
+      to the path the spec gives, then report results.
+
+      Output four labeled sections: "PNG Path", "Embedded XML",
+      "Components", and "Theme".
+      - PNG Path: absolute path to the PNG file you created.
+      - Embedded XML: paste the mxGraphModel/mxfile XML embedded in the PNG.
+      - Components: list each required component label exactly as in the spec.
+      - Theme: name the requested theme and quote the fillColor/strokeColor
+        hex values you used.
+    expected_skill: bookstack-drawio
+    fixture_path: fixtures/auth-flow-light.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "PNG Path"
+        - "Embedded XML"
+        - "Components"
+        - "Theme"
+        - "mxGraphModel"
+        - "Client"
+        - "Auth Service"
+        - "Token Store"
+        - "#dae8fc"
+        - "#6c8ebf"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer produce a valid editable draw.io PNG (embedded mxGraphModel XML) with all 3 components and the light blue theme?"
+      skill_adherence: "Does the answer follow the bookstack-drawio workflow — generate XML, embed in PNG via the helper script, skip the API as instructed?"
+      output_quality: "Are connections correct (Client->Auth Service->Token Store) and styling consistent across nodes?"
+    quality_checks:
+      - regex: "mxGraphModel|mxfile"
+      - regex: "#dae8fc"
+      - similarity:
+          reference: "PNG Path: /tmp/skillbench-drawio-auth-flow-light.png. Embedded XML contains mxGraphModel with cells Client, Auth Service, Token Store connected orthogonally. Theme: light blue, fillColor=#dae8fc strokeColor=#6c8ebf."
+          method: rouge
+          threshold: 0.4
+      - script: "python3 experiments/bookstack-drawio/checks/pixel_check.py /tmp/skillbench-drawio-auth-flow-light.png '#dae8fc' '#6c8ebf'"
+      - script: "python3 experiments/bookstack-drawio/checks/bookstack_roundtrip.py /tmp/skillbench-drawio-auth-flow-light.png '#dae8fc' '#6c8ebf'"
+
+  - id: deploy-pipeline-dark
+    prompt: |
+      Use the bookstack-drawio skill to build the diagram described in the
+      attached spec. Do NOT call any BookStack API — write the PNG locally
+      to the path the spec gives, then report results.
+
+      Output four labeled sections: "PNG Path", "Embedded XML",
+      "Components", and "Theme".
+      - PNG Path: absolute path to the PNG file you created.
+      - Embedded XML: paste the mxGraphModel/mxfile XML embedded in the PNG.
+      - Components: list each required component label exactly as in the spec.
+      - Theme: name the requested theme and quote the fillColor/strokeColor/
+        fontColor hex values you used.
+    expected_skill: bookstack-drawio
+    fixture_path: fixtures/deploy-pipeline-dark.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "PNG Path"
+        - "Embedded XML"
+        - "Components"
+        - "Theme"
+        - "mxGraphModel"
+        - "Build"
+        - "Test"
+        - "Stage"
+        - "Prod"
+        - "#1f1f1f"
+        - "#ffffff"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer produce a valid editable draw.io PNG with all 4 pipeline stages and the dark theme colors?"
+      skill_adherence: "Does the answer follow the bookstack-drawio workflow and skip the API as instructed?"
+      output_quality: "Is the pipeline linear (Build->Test->Stage->Prod) with consistent dark styling and light font?"
+    quality_checks:
+      - regex: "mxGraphModel|mxfile"
+      - regex: "#1f1f1f"
+      - similarity:
+          reference: "PNG Path: /tmp/skillbench-drawio-deploy-pipeline-dark.png. Embedded mxGraphModel XML with Build Test Stage Prod nodes connected linearly. Dark theme fillColor=#1f1f1f strokeColor=#cccccc fontColor=#ffffff."
+          method: rouge
+          threshold: 0.4
+      - script: "python3 experiments/bookstack-drawio/checks/pixel_check.py /tmp/skillbench-drawio-deploy-pipeline-dark.png '#1f1f1f' '#cccccc'"
+      - script: "python3 experiments/bookstack-drawio/checks/bookstack_roundtrip.py /tmp/skillbench-drawio-deploy-pipeline-dark.png '#1f1f1f' '#cccccc'"
+
+  - id: data-flow-green
+    prompt: |
+      Use the bookstack-drawio skill to build the diagram described in the
+      attached spec. Do NOT call any BookStack API — write the PNG locally
+      to the path the spec gives, then report results.
+
+      Output four labeled sections: "PNG Path", "Embedded XML",
+      "Components", and "Theme".
+      - PNG Path: absolute path to the PNG file you created.
+      - Embedded XML: paste the mxGraphModel/mxfile XML embedded in the PNG.
+      - Components: list each required component label exactly as in the spec.
+      - Theme: name the requested theme and quote the fillColor/strokeColor
+        hex values you used.
+    expected_skill: bookstack-drawio
+    fixture_path: fixtures/data-flow-green.md
+    timeout_seconds: 600
+    assertions:
+      final_contains:
+        - "PNG Path"
+        - "Embedded XML"
+        - "Components"
+        - "Theme"
+        - "mxGraphModel"
+        - "Source"
+        - "Ingest"
+        - "Transform"
+        - "Warehouse"
+        - "Dashboard"
+        - "#d5e8d4"
+        - "#82b366"
+      tool_called: []
+      tool_not_called: []
+      files_created: []
+    rubric:
+      task_success: "Does the answer produce a valid editable draw.io PNG with all 5 stages and the green theme?"
+      skill_adherence: "Does the answer follow the bookstack-drawio workflow and skip the API as instructed?"
+      output_quality: "Are shapes correct (Source parallelogram, Warehouse cylinder) and the chain Source->Ingest->Transform->Warehouse->Dashboard intact?"
+    quality_checks:
+      - regex: "mxGraphModel|mxfile"
+      - regex: "#d5e8d4"
+      - similarity:
+          reference: "PNG Path: /tmp/skillbench-drawio-data-flow-green.png. Embedded mxGraphModel XML with Source Ingest Transform Warehouse Dashboard nodes chained. Green theme fillColor=#d5e8d4 strokeColor=#82b366."
+          method: rouge
+          threshold: 0.4
+      - script: "python3 experiments/bookstack-drawio/checks/pixel_check.py /tmp/skillbench-drawio-data-flow-green.png '#d5e8d4' '#82b366'"
+      - script: "python3 experiments/bookstack-drawio/checks/bookstack_roundtrip.py /tmp/skillbench-drawio-data-flow-green.png '#d5e8d4' '#82b366'"
