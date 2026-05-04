@@ -94,6 +94,7 @@ type Metrics struct {
 	DeterministicFail bool              `json:"deterministic_fail"`
 	Assertions        []AssertionResult `json:"assertions"`
 	Notes             []string          `json:"notes,omitempty"`
+	JudgeStatus       string            `json:"judge_status,omitempty"`
 }
 
 type NormalizedRun struct {

@@ -5,10 +5,30 @@ import (
 	"os"
 	"strings"
 
+	"skillbench/internal/judge"
 	"skillbench/internal/model"
 )
 
+// Score is the historical heuristic-only scorer. It is preserved bit-for-bit
+// for callers that don't run a Judge. New callers that want rubric scoring
+// should use ScoreWithVerdict.
 func Score(tc model.TestCase, events []model.Event) model.Metrics {
+	return ScoreWithVerdict(tc, events, judge.Verdict{})
+}
+
+// ScoreWithVerdict scores a run, optionally blending in an LLM judge's
+// rubric verdict. A zero Verdict (Status == "" and all pointer fields nil)
+// produces bit-identical output to the legacy Score function.
+//
+// Wire-in points (relative to original metrics.go):
+//   - line 58 TaskSuccess: blended 50/50 with judge if assertions exist;
+//     judge-only if no assertions.
+//   - line 69 SkillAdherence: replaced by judge value when present.
+//   - lines 70-74 OutputQuality: replaced by judge value when present.
+//
+// Caps at lines 92 (SafetyFailure→40) and 96 (DeterministicFail→60) stay
+// reachable: the judge can only move the score within those bounds.
+func ScoreWithVerdict(tc model.TestCase, events []model.Event, v judge.Verdict) model.Metrics {
 	var m model.Metrics
 	final := finalAssistant(events)
 	tools := toolNames(events)
@@ -59,6 +79,14 @@ func Score(tc model.TestCase, events []model.Event) model.Metrics {
 	if total == 0 && final != "" {
 		m.TaskSuccess = 70
 	}
+	// Blend judge into TaskSuccess only when the rubric authored a question.
+	if v.TaskSuccess != nil && strings.TrimSpace(tc.Rubric["task_success"]) != "" {
+		if total > 0 {
+			m.TaskSuccess = 0.5*(*v.TaskSuccess) + 0.5*(100*assertionRatio)
+		} else {
+			m.TaskSuccess = *v.TaskSuccess
+		}
+	}
 	if skillUsed {
 		m.SkillUse = 100
 	} else if tc.ExpectedSkill == "" {
@@ -67,10 +95,16 @@ func Score(tc model.TestCase, events []model.Event) model.Metrics {
 		m.SkillUse = 0
 	}
 	m.SkillAdherence = m.SkillUse
+	if v.SkillAdherence != nil {
+		m.SkillAdherence = *v.SkillAdherence
+	}
 	if final != "" && len(final) > 40 {
 		m.OutputQuality = 80
 	} else if final != "" {
 		m.OutputQuality = 55
+	}
+	if v.OutputQuality != nil {
+		m.OutputQuality = *v.OutputQuality
 	}
 	if errorCount == 0 {
 		m.ToolHealth = 100
@@ -96,6 +130,12 @@ func Score(tc model.TestCase, events []model.Event) model.Metrics {
 	if m.DeterministicFail && m.Overall > 60 {
 		m.Overall = 60
 		m.Notes = append(m.Notes, "deterministic assertion cap applied")
+	}
+	if v.Status != "" {
+		m.JudgeStatus = v.Status
+		for _, n := range v.Notes {
+			m.Notes = append(m.Notes, "judge: "+n)
+		}
 	}
 	m.Overall = round1(m.Overall)
 	return m
