@@ -49,6 +49,32 @@ type TestCase struct {
 	TimeoutSeconds   int               `json:"timeout_seconds" yaml:"timeout_seconds"`
 	Assertions       Assertions        `json:"assertions" yaml:"assertions"`
 	Rubric           map[string]string `json:"rubric" yaml:"rubric"`
+	QualityChecks    []QualityCheckSpec `json:"quality_checks,omitempty" yaml:"quality_checks,omitempty"`
+}
+
+// QualityCheckSpec is the YAML/JSON shape for a single deterministic quality
+// check. Exactly one of the optional fields should be populated; validation
+// happens at decode time in internal/quality.
+type QualityCheckSpec struct {
+	Script     string                 `json:"script,omitempty" yaml:"script,omitempty"`
+	FileExists string                 `json:"file_exists,omitempty" yaml:"file_exists,omitempty"`
+	JSONSchema *JSONSchemaCheckSpec   `json:"json_schema,omitempty" yaml:"json_schema,omitempty"`
+	Regex      string                 `json:"regex,omitempty" yaml:"regex,omitempty"`
+	Similarity *SimilarityCheckSpec   `json:"similarity,omitempty" yaml:"similarity,omitempty"`
+}
+
+// JSONSchemaCheckSpec validates a JSON file against a JSON Schema document.
+type JSONSchemaCheckSpec struct {
+	File   string `json:"file" yaml:"file"`
+	Schema string `json:"schema" yaml:"schema"`
+}
+
+// SimilarityCheckSpec scores the final assistant message against a reference
+// answer using the configured method (rouge | bleu | llm | embedding).
+type SimilarityCheckSpec struct {
+	Reference string  `json:"reference" yaml:"reference"`
+	Method    string  `json:"method,omitempty" yaml:"method,omitempty"`
+	Threshold float64 `json:"threshold,omitempty" yaml:"threshold,omitempty"`
 }
 
 type Assertions struct {
