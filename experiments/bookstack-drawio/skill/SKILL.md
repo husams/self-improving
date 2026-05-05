@@ -75,6 +75,17 @@ bookstack_pages_update(
 )
 ```
 
+## Reporting Results
+
+When reporting diagram creation results, always include:
+
+1. **PNG Path**: Full absolute path to the generated PNG file
+2. **Embedded XML**: The complete XML content embedded in the PNG zTXt chunk (will be wrapped in `<mxfile>` format by the helper script, even if input was `<mxGraphModel>`)
+3. **Components**: List of all labeled components in the diagram
+4. **Theme**: Color scheme used (fillColor, strokeColor, fontColor)
+
+Note: The helper script automatically wraps `<mxGraphModel>` input in `<mxfile>` tags when embedding, so the embedded XML in the PNG will always be in `<mxfile><diagram>...</diagram></mxfile>` format. When extracting or reporting the embedded XML, mention both the outer `<mxfile>` wrapper and the inner `<mxGraphModel>` content.
+
 ## Common Diagram Styles
 
 ### Box styles
@@ -164,3 +175,4 @@ Then upload the base64 content and embed in page HTML.
 3. **Image `src` must be the full absolute URL** returned by the images API
 4. **Cells id="0" and id="1" are always required** as the root base cells in mxGraphModel XML
 5. **Use `--base64` flag** with the helper script for direct use with BookStack MCP tools
+6. **Embedded XML format**: The helper script wraps all input in `<mxfile>` format, so the PNG zTXt chunk contains `<mxfile><diagram>...</diagram></mxfile>` with the mxGraphModel inside the diagram element
