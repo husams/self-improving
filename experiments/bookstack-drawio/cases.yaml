@@ -30,6 +30,8 @@ cases:
       tool_called: []
       tool_not_called: []
       files_created: []
+    proposer_context:
+      include_failed_assertions: true
     rubric:
       task_success: "Does the answer produce a valid editable draw.io PNG (embedded mxGraphModel XML) with all 3 components and the light blue theme?"
       skill_adherence: "Does the answer follow the bookstack-drawio workflow — generate XML, embed in PNG via the helper script, skip the API as instructed?"
@@ -76,6 +78,8 @@ cases:
       tool_called: []
       tool_not_called: []
       files_created: []
+    proposer_context:
+      include_failed_assertions: true
     rubric:
       task_success: "Does the answer produce a valid editable draw.io PNG with all 4 pipeline stages and the dark theme colors?"
       skill_adherence: "Does the answer follow the bookstack-drawio workflow and skip the API as instructed?"
@@ -123,6 +127,8 @@ cases:
       tool_called: []
       tool_not_called: []
       files_created: []
+    proposer_context:
+      include_failed_assertions: true
     rubric:
       task_success: "Does the answer produce a valid editable draw.io PNG with all 5 stages and the green theme?"
       skill_adherence: "Does the answer follow the bookstack-drawio workflow and skip the API as instructed?"

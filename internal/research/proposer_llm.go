@@ -110,6 +110,12 @@ func (p LLMProposer) buildPrompt(in ProposerInput) (string, error) {
 	b.WriteString("\n```\n\n## Baseline metrics\n\n```json\n")
 	b.Write(metricsJSON)
 	b.WriteString("\n```\n")
+	if in.Case.ProposerContext.IncludeFailedAssertions {
+		if section := renderFailedAssertions(in.Baseline.Metrics.Assertions); section != "" {
+			b.WriteString("\n## Failed assertions on baseline\n\n")
+			b.WriteString(section)
+		}
+	}
 	if len(in.History) > 0 {
 		histJSON, err := json.MarshalIndent(in.History, "", "  ")
 		if err != nil {
@@ -121,6 +127,21 @@ func (p LLMProposer) buildPrompt(in ProposerInput) (string, error) {
 	}
 	b.WriteString("\nRespond with the JSON object only.\n")
 	return b.String(), nil
+}
+
+func renderFailedAssertions(results []model.AssertionResult) string {
+	var b strings.Builder
+	for _, a := range results {
+		if a.Passed {
+			continue
+		}
+		fmt.Fprintf(&b, "- `%s`", a.Name)
+		if msg := strings.TrimSpace(a.Message); msg != "" {
+			fmt.Fprintf(&b, " — %s", msg)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
 }
 
 func parseProposerJSON(text string) (Candidate, error) {

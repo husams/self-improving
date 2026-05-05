@@ -50,6 +50,18 @@ type TestCase struct {
 	Assertions       Assertions        `json:"assertions" yaml:"assertions"`
 	Rubric           map[string]string `json:"rubric" yaml:"rubric"`
 	QualityChecks    []QualityCheckSpec `json:"quality_checks,omitempty" yaml:"quality_checks,omitempty"`
+	ProposerContext  ProposerContext   `json:"proposer_context,omitempty" yaml:"proposer_context,omitempty"`
+}
+
+// ProposerContext lets the case author opt in to extra signals that the
+// research-loop LLM proposer receives when crafting candidate edits. The
+// default zero value preserves the original behavior (case + baseline metrics
+// only); experiments enable the fields they want fed back.
+type ProposerContext struct {
+	// IncludeFailedAssertions injects a list of failed final_contains /
+	// tool_called / etc. assertions from the baseline run so the proposer
+	// can target the actual gap, not guess from the score alone.
+	IncludeFailedAssertions bool `json:"include_failed_assertions,omitempty" yaml:"include_failed_assertions,omitempty"`
 }
 
 // QualityCheckSpec is the YAML/JSON shape for a single deterministic quality
