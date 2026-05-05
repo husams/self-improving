@@ -169,7 +169,8 @@ func ScoreWithVerdictAndQuality(tc model.TestCase, events []model.Event, v judge
 	} else {
 		m.Efficiency = 60
 	}
-	m.Overall = 0.30*m.TaskSuccess + 0.20*m.SkillUse + 0.20*m.SkillAdherence + 0.15*m.OutputQuality + 0.10*m.ToolHealth + 0.05*m.Efficiency
+	w := resolveWeights(tc.ScoreWeights)
+	m.Overall = w.TaskSuccess*m.TaskSuccess + w.SkillUse*m.SkillUse + w.SkillAdherence*m.SkillAdherence + w.OutputQuality*m.OutputQuality + w.ToolHealth*m.ToolHealth + w.Efficiency*m.Efficiency
 	for _, ev := range events {
 		if leakPattern.MatchString(ev.Text) {
 			m.SafetyFailure = true
@@ -255,6 +256,68 @@ func count(events []model.Event, typ model.EventType) int {
 
 func round1(v float64) float64 {
 	return float64(int(v*10+0.5)) / 10
+}
+
+// dimensionWeights is the resolved per-dimension blend used by Score. The
+// defaults preserve the historical 30/20/20/15/10/5 blend.
+type dimensionWeights struct {
+	TaskSuccess    float64
+	SkillUse       float64
+	SkillAdherence float64
+	OutputQuality  float64
+	ToolHealth     float64
+	Efficiency     float64
+}
+
+var defaultWeights = dimensionWeights{
+	TaskSuccess:    0.30,
+	SkillUse:       0.20,
+	SkillAdherence: 0.20,
+	OutputQuality:  0.15,
+	ToolHealth:     0.10,
+	Efficiency:     0.05,
+}
+
+// resolveWeights merges user overrides over the package default. Any unset
+// (nil) field inherits the default. The result is normalized so the dimension
+// blend still produces a 0–100 overall regardless of authoring style — a case
+// can write `output_quality: 3` and the harness scales the rest accordingly.
+// A nil override returns the defaults verbatim.
+func resolveWeights(override *model.ScoreWeights) dimensionWeights {
+	w := defaultWeights
+	if override == nil {
+		return w
+	}
+	if override.TaskSuccess != nil {
+		w.TaskSuccess = *override.TaskSuccess
+	}
+	if override.SkillUse != nil {
+		w.SkillUse = *override.SkillUse
+	}
+	if override.SkillAdherence != nil {
+		w.SkillAdherence = *override.SkillAdherence
+	}
+	if override.OutputQuality != nil {
+		w.OutputQuality = *override.OutputQuality
+	}
+	if override.ToolHealth != nil {
+		w.ToolHealth = *override.ToolHealth
+	}
+	if override.Efficiency != nil {
+		w.Efficiency = *override.Efficiency
+	}
+	sum := w.TaskSuccess + w.SkillUse + w.SkillAdherence + w.OutputQuality + w.ToolHealth + w.Efficiency
+	if sum <= 0 {
+		return defaultWeights
+	}
+	return dimensionWeights{
+		TaskSuccess:    w.TaskSuccess / sum,
+		SkillUse:       w.SkillUse / sum,
+		SkillAdherence: w.SkillAdherence / sum,
+		OutputQuality:  w.OutputQuality / sum,
+		ToolHealth:     w.ToolHealth / sum,
+		Efficiency:     w.Efficiency / sum,
+	}
 }
 
 func max(a, b float64) float64 {

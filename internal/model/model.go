@@ -51,6 +51,21 @@ type TestCase struct {
 	Rubric           map[string]string `json:"rubric" yaml:"rubric"`
 	QualityChecks    []QualityCheckSpec `json:"quality_checks,omitempty" yaml:"quality_checks,omitempty"`
 	ProposerContext  ProposerContext   `json:"proposer_context,omitempty" yaml:"proposer_context,omitempty"`
+	ScoreWeights     *ScoreWeights     `json:"score_weights,omitempty" yaml:"score_weights,omitempty"`
+}
+
+// ScoreWeights configures the dimension weights used to blend the overall
+// score. Any field left unset falls back to the package default. Weights are
+// normalized to sum to 1.0 before blending, so authors can write whole numbers
+// (e.g. output_quality: 3 to triple its influence) and still get a 0–100
+// overall.
+type ScoreWeights struct {
+	TaskSuccess    *float64 `json:"task_success,omitempty" yaml:"task_success,omitempty"`
+	SkillUse       *float64 `json:"skill_use,omitempty" yaml:"skill_use,omitempty"`
+	SkillAdherence *float64 `json:"skill_adherence,omitempty" yaml:"skill_adherence,omitempty"`
+	OutputQuality  *float64 `json:"output_quality,omitempty" yaml:"output_quality,omitempty"`
+	ToolHealth     *float64 `json:"tool_health,omitempty" yaml:"tool_health,omitempty"`
+	Efficiency     *float64 `json:"efficiency,omitempty" yaml:"efficiency,omitempty"`
 }
 
 // ProposerContext lets the case author opt in to extra signals that the

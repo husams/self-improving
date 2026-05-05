@@ -50,6 +50,40 @@ func TestScoreSuccess(t *testing.T) {
 	}
 }
 
+func TestScoreWeightsOverrideBlend(t *testing.T) {
+	// Bias the blend heavily toward output_quality so a low quality dimension
+	// dominates overall — confirms per-case weights actually take effect.
+	weight := func(v float64) *float64 { w := v; return &w }
+	low, hi := weight(1), weight(20)
+	tc := model.TestCase{
+		ExpectedSkill: "cognee-memory",
+		Assertions:    model.Assertions{FinalContains: []string{"x"}},
+		Rubric:        map[string]string{"output_quality": "is the output crisp?"},
+		ScoreWeights: &model.ScoreWeights{
+			TaskSuccess: low, SkillUse: low, SkillAdherence: low,
+			OutputQuality: hi, ToolHealth: low, Efficiency: low,
+		},
+	}
+	low20 := 20.0
+	v := judge.Verdict{OutputQuality: &low20}
+	events := []model.Event{
+		{Type: model.EventSkillInvocation, Name: "cognee-memory"},
+		{Type: model.EventAssistant, Text: "x detected and reported with sufficient detail"},
+	}
+	m := ScoreWithVerdict(tc, events, v)
+	// Default weights would yield ~75; weighted blend should pull down hard.
+	if m.Overall > 40 {
+		t.Fatalf("output_quality weight not dominating: overall=%.1f (quality=%.1f)", m.Overall, m.OutputQuality)
+	}
+	// And the unweighted default still works on a sibling case.
+	tcDefault := tc
+	tcDefault.ScoreWeights = nil
+	mDefault := ScoreWithVerdict(tcDefault, events, v)
+	if mDefault.Overall <= m.Overall {
+		t.Fatalf("default blend should score higher: default=%.1f weighted=%.1f", mDefault.Overall, m.Overall)
+	}
+}
+
 // Regression: deterministic-fail cap must hold even when the judge says 95.
 func TestScoreWithVerdictDeterministicCapStillApplies(t *testing.T) {
 	tc := model.TestCase{

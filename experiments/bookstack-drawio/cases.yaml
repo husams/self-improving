@@ -30,6 +30,13 @@ cases:
       tool_called: []
       tool_not_called: []
       files_created: []
+    score_weights:
+      task_success: 1
+      skill_use: 1
+      skill_adherence: 1
+      output_quality: 4
+      tool_health: 1
+      efficiency: 1
     proposer_context:
       include_failed_assertions: true
     rubric:
@@ -78,6 +85,13 @@ cases:
       tool_called: []
       tool_not_called: []
       files_created: []
+    score_weights:
+      task_success: 1
+      skill_use: 1
+      skill_adherence: 1
+      output_quality: 4
+      tool_health: 1
+      efficiency: 1
     proposer_context:
       include_failed_assertions: true
     rubric:
@@ -127,6 +141,13 @@ cases:
       tool_called: []
       tool_not_called: []
       files_created: []
+    score_weights:
+      task_success: 1
+      skill_use: 1
+      skill_adherence: 1
+      output_quality: 4
+      tool_health: 1
+      efficiency: 1
     proposer_context:
       include_failed_assertions: true
     rubric:
